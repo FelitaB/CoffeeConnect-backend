@@ -5,5 +5,7 @@ const router = Router();
 const chatController = new ChatController();
 
 router.get("/", chatController.findAll)
+router.get("/:id", chatController.findById);
+router.post("/", chatController.create);
 
 export default router;

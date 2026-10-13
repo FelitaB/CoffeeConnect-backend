@@ -9,4 +9,31 @@ export class ChatController {
         const chats = this.chatService.findAll();
         res.status(200).json(chats);
     };
+
+    findById = (req: Request<{ id: string }>, res: Response): void => {
+        const { id } = req.params;
+        if (!id) {
+            res.status(400).json({ status: "fail", message: "Chat id is required", errors: [] });
+            return;
+        }
+
+        const chat = this.chatService.findById(id);
+
+        if (!chat) {
+            res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
+            return;
+        }
+
+        res.status(200).json(chat);
+    };
+
+    create = (req: Request, res: Response): void => {
+        try {
+            const chat = this.chatService.create(req.body);
+            res.status(201).json(chat);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to create chat";
+            res.status(400).json({ status: "fail", message, errors: [] });
+        }
+    }
 }
