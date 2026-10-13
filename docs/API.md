@@ -61,7 +61,7 @@ Retrieves a specific chat by its ID.
   * `Authorization: Bearer <token>`
 
 #### Request Parameters
-*None required.*
+The chat ID is to be supplied in the URL
 
 #### Example Response (200 OK)
 ```json
@@ -73,6 +73,30 @@ Retrieves a specific chat by its ID.
   "datetime": 1791897159,
   "status": "ACCEPTED",
   "created_at": 1791634359
+}
+```
+
+### Edits a specific chat
+Edits a specific chat's fields by choice.
+
+* **URL:** `/chats/:id`
+* **Method:** `PATCH`
+* **Headers:**
+  * `Authorization: Bearer <token>`
+
+#### Request Parameters
+The chat ID is to be supplied in the URL
+
+#### Example Response (200 OK)
+```json
+{
+    "id": "04bc61aa-a0d8-43fa-be7c-ce160cd7fb9c",
+    "sender_id": 29122,
+    "receiver_id": 10291,
+    "location_id": "LONDON",
+    "datetime": 1795634359,
+    "status": "ACCEPTED",
+    "created_at": 1791903654
 }
 ```
 

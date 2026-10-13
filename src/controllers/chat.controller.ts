@@ -27,6 +27,22 @@ export class ChatController {
         res.status(200).json(chat);
     };
 
+    update = (req: Request<{ id: string }>, res: Response): void => {
+        try {
+            const chat = this.chatService.update(req.params.id, req.body);
+
+            if (!chat) {
+                res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(chat);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to update chat";
+            res.status(400).json({ status: "fail", message, errors: [] });
+        }
+    };
+
     create = (req: Request, res: Response): void => {
         try {
             const chat = this.chatService.create(req.body);

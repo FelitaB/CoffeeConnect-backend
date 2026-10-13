@@ -7,7 +7,7 @@ const app = express();
 
 app.use(express.json());
 
-app.use("/chats", ChatRouter);
+app.use("/api/chats", ChatRouter);
 //app.use("/people", PeopleRouter);
 
 app.get("/", (_req, res) => {
