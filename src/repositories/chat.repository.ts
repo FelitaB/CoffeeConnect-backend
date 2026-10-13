@@ -37,6 +37,16 @@ export class ChatRepository
         return this.chats.find((chat) => chat.id === id);
     }
 
+    delete(id: string): boolean {
+        const index = this.chats.findIndex((chat) => chat.id === id);
+        if (index === -1) {
+            return false;
+        }
+
+        this.chats.splice(index, 1);
+        return true;
+    }
+
     update(id: string, changes: ChatUpdate): Chat | undefined {
         const chat = this.findById(id);
         if (!chat) {

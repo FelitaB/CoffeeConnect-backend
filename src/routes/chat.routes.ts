@@ -8,5 +8,6 @@ router.get("/", chatController.findAll)
 router.get("/:id", chatController.findById);
 router.post("/", chatController.create);
 router.patch("/:id", chatController.update);
+router.delete("/:id", chatController.delete);
 
 export default router;

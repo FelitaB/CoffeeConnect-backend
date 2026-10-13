@@ -12,6 +12,10 @@ export class ChatService
         return this.chatRepository.findById(id);
     }
 
+    delete(id: string): boolean {
+        return this.chatRepository.delete(id);
+    }
+
     update(id: string, changes: ChatUpdate): Chat | undefined {
         if (!this.chatRepository.findById(id)) {
             return undefined;
