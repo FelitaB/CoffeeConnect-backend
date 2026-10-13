@@ -7,4 +7,8 @@ export class ChatService
     findAll(): Chat[] {
         return this.chatRepository.findAll();
     }
+
+    findById(id: string): Chat | undefined {
+        return this.chatRepository.findById(id);
+    }
 }

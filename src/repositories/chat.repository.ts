@@ -24,4 +24,8 @@ export class ChatRepository
     findAll(): Chat[] {
         return this.chats;
     }
+
+    findById(id: string): Chat | undefined {
+        return this.chats.find((chat) => chat.id === id);
+    }
 }
