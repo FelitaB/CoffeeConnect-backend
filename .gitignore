@@ -1,0 +1,17 @@
+# Dependencies (regenerated via `npm install`)
+node_modules/
+
+# TypeScript compiler build output
+dist/
+
+# macOS Finder metadata files
+.DS_Store
+
+# Environment configuration secrets
+.env
+.env.local
+
+# npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
