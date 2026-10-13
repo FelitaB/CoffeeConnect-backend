@@ -1,4 +1,4 @@
-enum ChatStatus {
+export enum ChatStatus {
     Pending = "PENDING",
     Accepted = "ACCEPTED",
     Declined = "DECLINED",
@@ -23,6 +23,8 @@ export interface Chat
     created_at: number // UNIX timestamp
 }
 
+export type ChatUpdate = Partial<Pick<Chat, "sender_id" | "receiver_id" | "location_id" | "datetime" | "status">>;
+
 export class ChatRepository
 {
     private chats: Chat[] = [];
@@ -33,6 +35,16 @@ export class ChatRepository
 
     findById(id: string): Chat | undefined {
         return this.chats.find((chat) => chat.id === id);
+    }
+
+    update(id: string, changes: ChatUpdate): Chat | undefined {
+        const chat = this.findById(id);
+        if (!chat) {
+            return undefined;
+        }
+
+        Object.assign(chat, changes);
+        return chat;
     }
 
     create(sender_id: number, receiver_id: number, location_id: string, datetime: number): Chat
