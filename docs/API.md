@@ -100,4 +100,21 @@ The chat ID is to be supplied in the URL
 }
 ```
 
+### Delete a specific chat
+Deletes a chat by its ID.
+
+* **URL:** `/api/chats/:id`
+* **Method:** `DELETE`
+* **Headers:**
+  * `Authorization: Bearer <token>`
+
+#### Request Parameters
+The chat ID is to be supplied in the URL
+
+#### Request Body
+*None required.*
+
+#### Example Response (204 No Content)
+The chat is deleted. No response body is returned.
+
 

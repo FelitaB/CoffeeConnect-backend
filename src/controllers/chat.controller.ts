@@ -27,6 +27,21 @@ export class ChatController {
         res.status(200).json(chat);
     };
 
+    delete = (req: Request<{ id: string }>, res: Response): void => {
+        const { id } = req.params;
+        if (typeof id !== "string" || id.trim().length === 0) {
+            res.status(400).json({ status: "fail", message: "A single chat id is required", errors: [] });
+            return;
+        }
+
+        if (!this.chatService.delete(id)) {
+            res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
+            return;
+        }
+
+        res.status(204).end();
+    };
+
     update = (req: Request<{ id: string }>, res: Response): void => {
         try {
             const chat = this.chatService.update(req.params.id, req.body);
