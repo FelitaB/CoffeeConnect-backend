@@ -6,6 +6,12 @@ enum ChatStatus {
     Cancelled = "CANCELLED"
 }
 
+export enum Location {
+    London = "LONDON",
+    Belfast = "BELFAST",
+    Manchester = "MANCHESTER"
+}
+
 export interface Chat
 {
     id: string, // Chat IDs are alphanumeric UUIDs
@@ -27,5 +33,21 @@ export class ChatRepository
 
     findById(id: string): Chat | undefined {
         return this.chats.find((chat) => chat.id === id);
+    }
+
+    create(sender_id: number, receiver_id: number, location_id: string, datetime: number): Chat
+    {
+        let newChat: Chat = { 
+            id: crypto.randomUUID(), 
+            sender_id: sender_id,
+            receiver_id: receiver_id,
+            location_id: location_id,
+            datetime: datetime,
+            status: ChatStatus.Pending,
+            created_at: Math.floor(Date.now() / 1000),
+        };
+
+        this.chats.push(newChat);
+        return newChat;
     }
 }

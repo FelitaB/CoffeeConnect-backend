@@ -26,4 +26,14 @@ export class ChatController {
 
         res.status(200).json(chat);
     };
+
+    create = (req: Request, res: Response): void => {
+        try {
+            const chat = this.chatService.create(req.body);
+            res.status(201).json(chat);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to create chat";
+            res.status(400).json({ status: "fail", message, errors: [] });
+        }
+    }
 }

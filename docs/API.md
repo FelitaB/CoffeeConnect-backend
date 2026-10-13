@@ -2,17 +2,32 @@
 
 The base URL for all endpoints is: `http://localhost:5000/`.
 
-The base URL for endpoints interacting with the people is: `http://localhost:5000/people`
-The base URL for endpoints interacting with the chats is: `http://localhost:5000/chats`
-
 ## Authentication
 
-To be decided later.
+To be decided later. The authentication headers in the endpoints later is boilerplate and is not yet implemented.
 
 ## Chats Endpoint
 
+### Chat interface
+The `Chat` interface follows this structure:
+
+```typescript
+export interface Chat
+{
+    id: string, // Chat IDs are alphanumeric UUIDs
+    sender_id: number,
+    receiver_id: number, 
+    location_id: string,
+    datetime: number, // UNIX timestamp
+    status: ChatStatus,
+    created_at: number // UNIX timestamp
+}
+```
+
+The `ChatStatus` enum can be one of the following: `PENDING`, `ACCEPTED`, `DECLINED`, `COMPLETED`, `CANCELLED`.
+
 ### Get all chats
-Retrieves all the existing chats in the database.
+Retrieves all the existing chats in the database in the form of an array of `Chat` objects.
 
 * **URL:** `/chats/`
 * **Method:** `GET`
