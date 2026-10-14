@@ -33,6 +33,14 @@ export class ChatRepository
         return this.chats;
     }
 
+    findPaginated(skip: number, limit: number): Chat[] {
+        return this.chats.slice(skip, skip + limit);
+    }
+
+    count(): number {
+        return this.chats.length;
+    }
+
     findById(id: string): Chat | undefined {
         return this.chats.find((chat) => chat.id === id);
     }
