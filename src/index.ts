@@ -3,6 +3,8 @@ import express from "express";
 import ChatRouter from "./routes/chat.routes";
 import PeopleRouter from "./routes/people.routes";
 
+require('dotenv').config();
+
 const app = express();
 
 app.use(express.json());
