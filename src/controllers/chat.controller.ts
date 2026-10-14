@@ -1,6 +1,7 @@
 import type {Request, Response} from "express";
 
-import { ChatService } from "../services/chat.service.ts";
+import { ChatIdSchema, ChatService } from "../services/chat.service.ts";
+import { sendError } from "../utils/errors.ts";
 
 export class ChatController {
     constructor(private readonly chatService: ChatService = new ChatService()) {}
@@ -11,40 +12,8 @@ export class ChatController {
     };
 
     findById = (req: Request<{ id: string }>, res: Response): void => {
-        const { id } = req.params;
-        if (!id) {
-            res.status(400).json({ status: "fail", message: "Chat id is required", errors: [] });
-            return;
-        }
-
-        const chat = this.chatService.findById(id);
-
-        if (!chat) {
-            res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
-            return;
-        }
-
-        res.status(200).json(chat);
-    };
-
-    delete = (req: Request<{ id: string }>, res: Response): void => {
-        const { id } = req.params;
-        if (typeof id !== "string" || id.trim().length === 0) {
-            res.status(400).json({ status: "fail", message: "A single chat id is required", errors: [] });
-            return;
-        }
-
-        if (!this.chatService.delete(id)) {
-            res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
-            return;
-        }
-
-        res.status(204).end();
-    };
-
-    update = (req: Request<{ id: string }>, res: Response): void => {
         try {
-            const chat = this.chatService.update(req.params.id, req.body);
+            const chat = this.chatService.findById(ChatIdSchema.parse(req.params.id));
 
             if (!chat) {
                 res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
@@ -53,8 +22,35 @@ export class ChatController {
 
             res.status(200).json(chat);
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Unable to update chat";
-            res.status(400).json({ status: "fail", message, errors: [] });
+            sendError(res, error, "Unable to find chat");
+        }
+    };
+
+    delete = (req: Request<{ id: string }>, res: Response): void => {
+        try {
+            if (!this.chatService.delete(ChatIdSchema.parse(req.params.id))) {
+                res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
+                return;
+            }
+
+            res.status(204).end();
+        } catch (error) {
+            sendError(res, error, "Unable to delete chat");
+        }
+    };
+
+    update = (req: Request<{ id: string }>, res: Response): void => {
+        try {
+            const chat = this.chatService.update(ChatIdSchema.parse(req.params.id), req.body);
+
+            if (!chat) {
+                res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(chat);
+        } catch (error) {
+            sendError(res, error, "Unable to update chat");
         }
     };
 
@@ -63,8 +59,7 @@ export class ChatController {
             const chat = this.chatService.create(req.body);
             res.status(201).json(chat);
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Unable to create chat";
-            res.status(400).json({ status: "fail", message, errors: [] });
+            sendError(res, error, "Unable to create chat");
         }
     }
 }
