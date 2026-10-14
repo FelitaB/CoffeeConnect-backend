@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { ChatRepository, ChatStatus, Location, type Chat } from "../repositories/chat.repository.ts";
-import { PaginationSchema, type Paginated } from "../utils/pagination.ts";
+import { ChatRepository, ChatStatus, Location, type Chat } from "../repositories/chat.repository";
+import { PaginationSchema, type Paginated } from "../utils/pagination";
 
 export const ChatIdSchema = z.uuid("Chat id must be a valid UUID");
 

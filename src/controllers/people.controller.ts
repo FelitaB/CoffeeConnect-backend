@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 
-import { PeopleService, PersonIdSchema } from "../services/people.service.ts";
-import { sendError } from "../utils/errors.ts";
-import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination.ts";
+import { PeopleService, PersonIdSchema } from "../services/people.service";
+import { sendError } from "../utils/errors";
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination";
 
 export class PeopleController {
     constructor(private readonly peopleService: PeopleService = new PeopleService()) {}

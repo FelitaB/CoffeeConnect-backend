@@ -1,7 +1,7 @@
 import express from "express";
 
-import ChatRouter from "./routes/chat.routes.ts";
-import PeopleRouter from "./routes/people.routes.ts";
+import ChatRouter from "./routes/chat.routes";
+import PeopleRouter from "./routes/people.routes";
 
 const app = express();
 
