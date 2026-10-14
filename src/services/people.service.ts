@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { Location } from "../repositories/chat.repository.ts";
 import { PeopleRepository, type Interest, type Person, type PersonUpdate } from "../repositories/people.repository.ts";
+import { PaginationSchema, type Paginated } from "../utils/pagination.ts";
 
 const EMAIL_DOMAIN = "@paconsulting.com";
 
@@ -38,6 +39,16 @@ export class PeopleService
 
     findAll(): Person[] {
         return this.peopleRepository.findAll();
+    }
+
+    getPaginatedShifts(page: number, limit: number): Paginated<Person> {
+        PaginationSchema.parse({ page, limit });
+
+        const total = this.peopleRepository.count();
+        return {
+            data: this.peopleRepository.findPaginated((page - 1) * limit, limit),
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
     }
 
     findById(id: number): Person | undefined {

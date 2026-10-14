@@ -2,12 +2,19 @@ import type { Request, Response } from "express";
 
 import { PeopleService, PersonIdSchema } from "../services/people.service.ts";
 import { sendError } from "../utils/errors.ts";
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination.ts";
 
 export class PeopleController {
     constructor(private readonly peopleService: PeopleService = new PeopleService()) {}
 
-    findAll = (_req: Request, res: Response): void => {
-        res.status(200).json(this.peopleService.findAll());
+    findAll = (req: Request, res: Response): void => {
+        try {
+            const page = Number(req.query.page ?? DEFAULT_PAGE);
+            const limit = Number(req.query.limit ?? DEFAULT_LIMIT);
+            res.status(200).json(this.peopleService.getPaginatedShifts(page, limit));
+        } catch (error) {
+            sendError(res, error, "Unable to fetch people");
+        }
     };
 
     create = (req: Request, res: Response): void => {

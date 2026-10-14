@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ChatRepository, ChatStatus, Location, type Chat } from "../repositories/chat.repository.ts";
+import { PaginationSchema, type Paginated } from "../utils/pagination.ts";
 
 export const ChatIdSchema = z.uuid("Chat id must be a valid UUID");
 
@@ -27,6 +28,16 @@ export class ChatService
 
     findAll(): Chat[] {
         return this.chatRepository.findAll();
+    }
+
+    getPaginatedShifts(page: number, limit: number): Paginated<Chat> {
+        PaginationSchema.parse({ page, limit });
+
+        const total = this.chatRepository.count();
+        return {
+            data: this.chatRepository.findPaginated((page - 1) * limit, limit),
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
     }
 
     findById(id: string): Chat | undefined {

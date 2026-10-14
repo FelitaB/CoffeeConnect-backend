@@ -30,6 +30,14 @@ export class PeopleRepository
         return this.people;
     }
 
+    findPaginated(skip: number, limit: number): Person[] {
+        return this.people.slice(skip, skip + limit);
+    }
+
+    count(): number {
+        return this.people.length;
+    }
+
     findById(id: number): Person | undefined {
         return this.people.find((person) => person.id === id);
     }

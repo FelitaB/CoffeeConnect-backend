@@ -2,13 +2,19 @@ import type {Request, Response} from "express";
 
 import { ChatIdSchema, ChatService } from "../services/chat.service.ts";
 import { sendError } from "../utils/errors.ts";
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination.ts";
 
 export class ChatController {
     constructor(private readonly chatService: ChatService = new ChatService()) {}
 
     findAll = (req: Request, res: Response): void => {
-        const chats = this.chatService.findAll();
-        res.status(200).json(chats);
+        try {
+            const page = Number(req.query.page ?? DEFAULT_PAGE);
+            const limit = Number(req.query.limit ?? DEFAULT_LIMIT);
+            res.status(200).json(this.chatService.getPaginatedShifts(page, limit));
+        } catch (error) {
+            sendError(res, error, "Unable to fetch chats");
+        }
     };
 
     findById = (req: Request<{ id: string }>, res: Response): void => {
