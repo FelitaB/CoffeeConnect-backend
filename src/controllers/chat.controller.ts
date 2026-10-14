@@ -1,8 +1,8 @@
 import type {Request, Response} from "express";
 
-import { ChatIdSchema, ChatService } from "../services/chat.service.ts";
-import { sendError } from "../utils/errors.ts";
-import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination.ts";
+import { ChatIdSchema, ChatService } from "../services/chat.service";
+import { sendError } from "../utils/errors";
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination";
 
 export class ChatController {
     constructor(private readonly chatService: ChatService = new ChatService()) {}

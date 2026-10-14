@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { Location } from "../repositories/chat.repository.ts";
-import { PeopleRepository, type Interest, type Person, type PersonUpdate } from "../repositories/people.repository.ts";
-import { PaginationSchema, type Paginated } from "../utils/pagination.ts";
+import { Location } from "../repositories/chat.repository";
+import { PeopleRepository, type Interest, type Person, type PersonUpdate } from "../repositories/people.repository";
+import { PaginationSchema, type Paginated } from "../utils/pagination";
 
 const EMAIL_DOMAIN = "@paconsulting.com";
 
