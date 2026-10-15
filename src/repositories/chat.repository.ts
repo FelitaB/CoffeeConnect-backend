@@ -1,83 +1,57 @@
-export enum ChatStatus {
-    Pending = "PENDING",
-    Accepted = "ACCEPTED",
-    Declined = "DECLINED",
-    Completed = "COMPLETED",
-    Cancelled = "CANCELLED"
-}
+import { ChatStatus, Location, type Chat } from "../generated/prisma/client";
+import { isRecordNotFound, prisma, type AppPrismaClient } from "../lib/prisma";
 
-export enum Location {
-    London = "LONDON",
-    Belfast = "BELFAST",
-    Manchester = "MANCHESTER"
-}
+export { ChatStatus, Location, type Chat };
 
-export interface Chat
-{
-    id: string, // Chat IDs are alphanumeric UUIDs
+export interface ChatCreate {
     sender_id: number,
-    receiver_id: number, 
+    receiver_id: number,
     location_id: string,
-    datetime: number, // UNIX timestamp
-    status: ChatStatus,
-    created_at: number // UNIX timestamp
+    datetime: Date,
 }
 
-export type ChatUpdate = Partial<Pick<Chat, "sender_id" | "receiver_id" | "location_id" | "datetime" | "status">>;
+export type ChatUpdate = Partial<ChatCreate & Pick<Chat, "status">>;
 
 export class ChatRepository
 {
-    private chats: Chat[] = [];
+    constructor(private readonly db: AppPrismaClient = prisma) {}
 
-    findAll(): Chat[] {
-        return this.chats;
+    findAll(): Promise<Chat[]> {
+        return this.db.chat.findMany({ orderBy: { created_at: "asc" } });
     }
 
-    findPaginated(skip: number, limit: number): Chat[] {
-        return this.chats.slice(skip, skip + limit);
+    findPaginated(skip: number, limit: number): Promise<Chat[]> {
+        return this.db.chat.findMany({ skip, take: limit, orderBy: { created_at: "asc" } });
     }
 
-    count(): number {
-        return this.chats.length;
+    count(): Promise<number> {
+        return this.db.chat.count();
     }
 
-    findById(id: string): Chat | undefined {
-        return this.chats.find((chat) => chat.id === id);
+    findById(id: string): Promise<Chat | null> {
+        return this.db.chat.findUnique({ where: { id } });
     }
 
-    delete(id: string): boolean {
-        const index = this.chats.findIndex((chat) => chat.id === id);
-        if (index === -1) {
-            return false;
+    async delete(id: string): Promise<boolean> {
+        try {
+            await this.db.chat.delete({ where: { id } });
+            return true;
+        } catch (error) {
+            if (isRecordNotFound(error)) return false;
+            throw error;
         }
-
-        this.chats.splice(index, 1);
-        return true;
     }
 
-    update(id: string, changes: ChatUpdate): Chat | undefined {
-        const chat = this.findById(id);
-        if (!chat) {
-            return undefined;
+    async update(id: string, data: ChatUpdate): Promise<Chat | null> {
+        try {
+            return await this.db.chat.update({ where: { id }, data });
+        } catch (error) {
+            if (isRecordNotFound(error)) return null;
+            throw error;
         }
-
-        Object.assign(chat, changes);
-        return chat;
     }
 
-    create(sender_id: number, receiver_id: number, location_id: string, datetime: number): Chat
-    {
-        let newChat: Chat = { 
-            id: crypto.randomUUID(), 
-            sender_id: sender_id,
-            receiver_id: receiver_id,
-            location_id: location_id,
-            datetime: datetime,
-            status: ChatStatus.Pending,
-            created_at: Math.floor(Date.now() / 1000),
-        };
-
-        this.chats.push(newChat);
-        return newChat;
+    create(data: ChatCreate): Promise<Chat> {
+        return this.db.chat.create({ data });
     }
 }

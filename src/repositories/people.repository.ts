@@ -1,96 +1,90 @@
-import { Location } from "./chat.repository";
+import type { Interest, JobRole, Location, Prisma } from "../generated/prisma/client";
+import { isRecordNotFound, prisma, type AppPrismaClient } from "../lib/prisma";
 
-export interface Interest
-{
-    id: number,
-    name: string,
-    created: number
-};
+export type { Interest };
 
-export interface Person
-{
-    id: number,
+const personInclude = { interests: true } satisfies Prisma.PersonInclude;
+
+export type Person = Omit<Prisma.PersonGetPayload<{ include: typeof personInclude }>, "hashedPassword">;
+
+export interface PersonCreate {
     first_name: string,
     last_name: string,
     email: string,
     location: Location,
-    created_at: number,
-    updated_at: number,
-    interests: Interest[]
-};
+    job_role: JobRole,
+    job_capability: string,
+    job_go_to_market: string,
+    interest_ids: number[],
+}
 
-export type PersonUpdate = Partial<Pick<Person, "first_name" | "last_name" | "email" | "location" | "interests">>;
+export type PersonUpdate = Partial<PersonCreate>;
 
 export class PeopleRepository
 {
-    private people: Person[] = [];
-    private interests: Interest[] = [];
+    constructor(private readonly db: AppPrismaClient = prisma) {}
 
-    findAll(): Person[] {
-        return this.people;
+    findAll(): Promise<Person[]> {
+        return this.db.person.findMany({ include: personInclude, orderBy: { id: "asc" } });
     }
 
-    findPaginated(skip: number, limit: number): Person[] {
-        return this.people.slice(skip, skip + limit);
+    findPaginated(skip: number, limit: number): Promise<Person[]> {
+        return this.db.person.findMany({ skip, take: limit, include: personInclude, orderBy: { id: "asc" } });
     }
 
-    count(): number {
-        return this.people.length;
+    count(): Promise<number> {
+        return this.db.person.count();
     }
 
-    findById(id: number): Person | undefined {
-        return this.people.find((person) => person.id === id);
+    findById(id: number): Promise<Person | null> {
+        return this.db.person.findUnique({ where: { id }, include: personInclude });
     }
 
-    findInterestsByIds(ids: number[]): Interest[] {
-        return this.interests.filter((interest) => ids.includes(interest.id));
+    findInterestsByIds(ids: number[]): Promise<Interest[]> {
+        return this.db.interest.findMany({ where: { id: { in: ids } } });
     }
 
-    delete(id: number): boolean {
-        const index = this.people.findIndex((person) => person.id === id);
-        if (index === -1) {
-            return false;
+    async delete(id: number): Promise<boolean> {
+        try {
+            await this.db.person.delete({ where: { id } });
+            return true;
+        } catch (error) {
+            if (isRecordNotFound(error)) return false;
+            throw error;
+        }
+    }
+
+    async update(id: number, { interest_ids, ...changes }: PersonUpdate): Promise<Person | null> {
+        const data: Prisma.PersonUpdateInput = { ...changes };
+        if (interest_ids !== undefined) {
+            data.interests = { set: interest_ids.map((interestId) => ({ id: interestId })) };
         }
 
-        this.people.splice(index, 1);
-        return true;
-    }
-
-    update(id: number, changes: PersonUpdate): Person | undefined {
-        const person = this.findById(id);
-        if (!person) {
-            return undefined;
+        try {
+            return await this.db.person.update({ where: { id }, data, include: personInclude });
+        } catch (error) {
+            if (isRecordNotFound(error)) return null;
+            throw error;
         }
-
-        Object.assign(person, changes, { updated_at: Math.floor(Date.now() / 1000) });
-        return person;
     }
 
-    create(first_name: string, last_name: string, email: string, location: Location, interests: Interest[]): Person
-    {
-        const now = Math.floor(Date.now() / 1000);
-        const newPerson: Person = {
-            id: this.generateId(),
-            first_name,
-            last_name,
-            email,
-            location,
-            created_at: now,
-            updated_at: now,
-            interests
-        };
-
-        this.people.push(newPerson);
-        return newPerson;
+    async create({ interest_ids, ...data }: PersonCreate): Promise<Person> {
+        return this.db.person.create({
+            data: {
+                ...data,
+                id: await this.generateId(),
+                interests: { connect: interest_ids.map((id) => ({ id })) },
+            },
+            include: personInclude,
+        });
     }
 
     // Person IDs are 5-digit numbers
-    private generateId(): number {
+    private async generateId(): Promise<number> {
         let id: number;
         do {
             id = Math.floor(10000 + Math.random() * 90000);
-        } while (this.findById(id));
+        } while (await this.db.person.findUnique({ where: { id }, select: { id: true } }));
         return id;
     }
 }
-

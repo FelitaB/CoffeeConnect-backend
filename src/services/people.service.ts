@@ -1,10 +1,43 @@
 import { z } from "zod";
 
-import { Location } from "../repositories/chat.repository";
-import { PeopleRepository, type Interest, type Person, type PersonUpdate } from "../repositories/people.repository";
+import { JobRole, Location } from "../generated/prisma/client";
+import { PeopleRepository, type Person, type PersonUpdate } from "../repositories/people.repository";
 import { PaginationSchema, type Paginated } from "../utils/pagination";
 
 const EMAIL_DOMAIN = "@paconsulting.com";
+
+export const JOB_CAPABILITIES = [
+    "Advanced Data Analytics",
+    "Architecture",
+    "Backend Engineering",
+    "Biomedical Devices",
+    "Data Engineering",
+    "Delivery & Transformation",
+    "DevOps",
+    "Digital Design",
+    "Experience Design",
+    "Frontend Engineering",
+    "Human Factors",
+    "Network Technology",
+    "Physics",
+    "Process & Automation",
+    "Product & Strategy",
+    "Quality Assurance & Test",
+    "Research Operations",
+    "Simulation & Modelling",
+    "Software & AI Enabled Systems",
+] as const;
+
+export const JOB_GO_TO_MARKETS = [
+    "Consumer & Manufacturing",
+    "Defence & Security",
+    "Energy & Utilities",
+    "Financial Services",
+    "Government & Public Sector",
+    "Health",
+    "Life Sciences",
+    "Transport",
+] as const;
 
 export const PersonIdSchema = z.string().regex(/^\d{5}$/, "Person id must be a 5-digit number").transform(Number);
 
@@ -17,6 +50,9 @@ export const CreatePersonSchema = z.object({
     last_name: z.string().trim().min(1, "Last name is required"),
     email: EmailSchema,
     location: z.enum(Location),
+    job_role: z.enum(JobRole),
+    job_capability: z.enum(JOB_CAPABILITIES),
+    job_go_to_market: z.enum(JOB_GO_TO_MARKETS),
     interest_ids: z.array(z.number().int()),
 });
 
@@ -37,45 +73,47 @@ export class PeopleService
 {
     constructor(private readonly peopleRepository: PeopleRepository = new PeopleRepository()) {}
 
-    findAll(): Person[] {
+    findAll(): Promise<Person[]> {
         return this.peopleRepository.findAll();
     }
 
-    getPaginatedShifts(page: number, limit: number): Paginated<Person> {
+    async getPaginatedShifts(page: number, limit: number): Promise<Paginated<Person>> {
         PaginationSchema.parse({ page, limit });
 
-        const total = this.peopleRepository.count();
+        const [total, data] = await Promise.all([
+            this.peopleRepository.count(),
+            this.peopleRepository.findPaginated((page - 1) * limit, limit),
+        ]);
         return {
-            data: this.peopleRepository.findPaginated((page - 1) * limit, limit),
+            data,
             meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
         };
     }
 
-    findById(id: number): Person | undefined {
+    findById(id: number): Promise<Person | null> {
         return this.peopleRepository.findById(id);
     }
 
-    delete(id: number): boolean {
+    delete(id: number): Promise<boolean> {
         return this.peopleRepository.delete(id);
     }
 
-    create(body: unknown): Person {
+    async create(body: unknown): Promise<Person> {
         const input = CreatePersonSchema.parse(body);
 
-        return this.peopleRepository.create(
-            input.first_name,
-            input.last_name,
-            input.email,
-            input.location,
-            this.resolveInterests(input.interest_ids)
-        );
+        return this.peopleRepository.create({
+            first_name: input.first_name,
+            last_name: input.last_name,
+            email: input.email,
+            location: input.location,
+            job_role: input.job_role,
+            job_capability: input.job_capability,
+            job_go_to_market: input.job_go_to_market,
+            interest_ids: await this.resolveInterestIds(input.interest_ids),
+        });
     }
 
-    update(id: number, body: unknown): Person | undefined {
-        if (!this.peopleRepository.findById(id)) {
-            return undefined;
-        }
-
+    async update(id: number, body: unknown): Promise<Person | null> {
         const { interest_ids, ...changes } = UpdatePersonSchema.parse(body);
         const update: PersonUpdate = {};
 
@@ -83,28 +121,31 @@ export class PeopleService
         if (changes.last_name !== undefined) update.last_name = changes.last_name;
         if (changes.email !== undefined) update.email = changes.email;
         if (changes.location !== undefined) update.location = changes.location;
-        if (interest_ids !== undefined) update.interests = this.resolveInterests(interest_ids);
+        if (changes.job_role !== undefined) update.job_role = changes.job_role;
+        if (changes.job_capability !== undefined) update.job_capability = changes.job_capability;
+        if (changes.job_go_to_market !== undefined) update.job_go_to_market = changes.job_go_to_market;
+        if (interest_ids !== undefined) update.interest_ids = await this.resolveInterestIds(interest_ids);
 
         return this.peopleRepository.update(id, update);
     }
 
-    spin(id: number): { match: Person | null } | undefined {
-        const person = this.peopleRepository.findById(id);
+    async spin(id: number): Promise<{ match: Person | null } | undefined> {
+        const person = await this.peopleRepository.findById(id);
         if (!person) {
             return undefined;
         }
 
-        const candidates = this.peopleRepository.findAll().filter((candidate) => candidate.id !== id);
+        const candidates = (await this.peopleRepository.findAll()).filter((candidate) => candidate.id !== id);
         return { match: findBestMatch(person, candidates) ?? null };
     }
 
-    private resolveInterests(ids: number[]): Interest[] {
+    private async resolveInterestIds(ids: number[]): Promise<number[]> {
         const uniqueIds = [...new Set(ids)];
-        const interests = this.peopleRepository.findInterestsByIds(uniqueIds);
+        const interests = await this.peopleRepository.findInterestsByIds(uniqueIds);
         if (interests.length !== uniqueIds.length) {
             //throw new Error("One or more interest IDs do not exist");
         }
 
-        return interests;
+        return interests.map((interest) => interest.id);
     }
 }
