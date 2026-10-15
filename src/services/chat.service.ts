@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ChatRepository, ChatStatus, Location, type Chat } from "../repositories/chat.repository";
+import { ChatRepository, ChatStatus, Location, type Chat, type ChatUpdate } from "../repositories/chat.repository";
 import { PaginationSchema, type Paginated } from "../utils/pagination";
 
 export const ChatIdSchema = z.uuid("Chat id must be a valid UUID");
@@ -26,44 +26,51 @@ export class ChatService
 {
     constructor(private readonly chatRepository: ChatRepository = new ChatRepository()) {}
 
-    findAll(): Chat[] {
+    findAll(): Promise<Chat[]> {
         return this.chatRepository.findAll();
     }
 
-    getPaginatedShifts(page: number, limit: number): Paginated<Chat> {
+    async getPaginatedShifts(page: number, limit: number): Promise<Paginated<Chat>> {
         PaginationSchema.parse({ page, limit });
 
-        const total = this.chatRepository.count();
+        const [total, data] = await Promise.all([
+            this.chatRepository.count(),
+            this.chatRepository.findPaginated((page - 1) * limit, limit),
+        ]);
         return {
-            data: this.chatRepository.findPaginated((page - 1) * limit, limit),
+            data,
             meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
         };
     }
 
-    findById(id: string): Chat | undefined {
+    findById(id: string): Promise<Chat | null> {
         return this.chatRepository.findById(id);
     }
 
-    delete(id: string): boolean {
+    delete(id: string): Promise<boolean> {
         return this.chatRepository.delete(id);
     }
 
-    update(id: string, body: unknown): Chat | undefined {
-        if (!this.chatRepository.findById(id)) {
-            return undefined;
-        }
+    update(id: string, body: unknown): Promise<Chat | null> {
+        const { datetime, ...changes } = UpdateChatSchema.parse(body);
+        const update: ChatUpdate = { ...changes };
+        if (datetime !== undefined) update.datetime = fromUnix(datetime);
 
-        return this.chatRepository.update(id, UpdateChatSchema.parse(body));
+        return this.chatRepository.update(id, update);
     }
 
-    create(body: unknown): Chat {
+    create(body: unknown): Promise<Chat> {
         const chat = CreateChatSchema.parse(body);
 
-        return this.chatRepository.create(
-            chat.sender_id,
-            chat.receiver_id,
-            chat.location_id,
-            chat.datetime
-        );
+        return this.chatRepository.create({
+            sender_id: chat.sender_id,
+            receiver_id: chat.receiver_id,
+            location_id: chat.location_id,
+            datetime: fromUnix(chat.datetime),
+        });
     }
+}
+
+function fromUnix(seconds: number): Date {
+    return new Date(seconds * 1000);
 }

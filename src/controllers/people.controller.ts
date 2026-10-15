@@ -7,28 +7,28 @@ import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination";
 export class PeopleController {
     constructor(private readonly peopleService: PeopleService = new PeopleService()) {}
 
-    findAll = (req: Request, res: Response): void => {
+    findAll = async (req: Request, res: Response): Promise<void> => {
         try {
             const page = Number(req.query.page ?? DEFAULT_PAGE);
             const limit = Number(req.query.limit ?? DEFAULT_LIMIT);
-            res.status(200).json(this.peopleService.getPaginatedShifts(page, limit));
+            res.status(200).json(await this.peopleService.getPaginatedShifts(page, limit));
         } catch (error) {
             sendError(res, error, "Unable to fetch people");
         }
     };
 
-    create = (req: Request, res: Response): void => {
+    create = async (req: Request, res: Response): Promise<void> => {
         try {
-            const person = this.peopleService.create(req.body);
+            const person = await this.peopleService.create(req.body);
             res.status(201).json(person);
         } catch (error) {
             sendError(res, error, "Unable to create person");
         }
     };
 
-    update = (req: Request<{ id: string }>, res: Response): void => {
+    update = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            const person = this.peopleService.update(PersonIdSchema.parse(req.params.id), req.body);
+            const person = await this.peopleService.update(PersonIdSchema.parse(req.params.id), req.body);
             if (!person) {
                 res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
                 return;
@@ -40,9 +40,9 @@ export class PeopleController {
         }
     };
 
-    delete = (req: Request<{ id: string }>, res: Response): void => {
+    delete = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            if (!this.peopleService.delete(PersonIdSchema.parse(req.params.id))) {
+            if (!(await this.peopleService.delete(PersonIdSchema.parse(req.params.id)))) {
                 res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
                 return;
             }
@@ -53,9 +53,9 @@ export class PeopleController {
         }
     };
 
-    spin = (req: Request<{ id: string }>, res: Response): void => {
+    spin = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            const result = this.peopleService.spin(PersonIdSchema.parse(req.params.id));
+            const result = await this.peopleService.spin(PersonIdSchema.parse(req.params.id));
             if (!result) {
                 res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
                 return;

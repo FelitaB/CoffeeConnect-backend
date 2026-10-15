@@ -13,15 +13,18 @@ datasource db {
 }
 
 model Person {
-  id             Int        @id @default(autoincrement())
-  first_name     String
-  last_name      String
-  email          String     @unique
-  location       Location
-  hashedPassword String?
-  registered     Boolean    @default(false)
-  created_at     DateTime   @default(now())
-  updated_at     DateTime   @updatedAt
+  id               Int      @id @default(autoincrement())
+  first_name       String
+  last_name        String
+  email            String   @unique
+  location         Location
+  job_role         JobRole
+  job_capability   String
+  job_go_to_market String
+  hashedPassword   String?
+  registered       Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   interests      Interest[]
   sent_chats     Chat[]     @relation("ChatSender")
@@ -44,8 +47,8 @@ model Chat {
   status      ChatStatus @default(PENDING)
   created_at  DateTime   @default(now())
 
-  sender      Person     @relation("ChatSender", fields: [sender_id], references: [id])
-  receiver    Person     @relation("ChatReceiver", fields: [receiver_id], references: [id])
+  sender   Person @relation("ChatSender", fields: [sender_id], references: [id])
+  receiver Person @relation("ChatReceiver", fields: [receiver_id], references: [id])
 
   @@index([sender_id])
   @@index([receiver_id])
@@ -57,6 +60,22 @@ enum ChatStatus {
   DECLINED
   COMPLETED
   CANCELLED
+}
+
+enum JobRole {
+  ANA
+  CON
+  CAN
+  SNC
+  PCN
+  MCN
+  DIR
+  IDP
+  APP
+  APA
+  CDR
+  PAR
+  SPR
 }
 
 enum Location {

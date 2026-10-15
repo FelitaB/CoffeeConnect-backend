@@ -7,19 +7,19 @@ import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination";
 export class ChatController {
     constructor(private readonly chatService: ChatService = new ChatService()) {}
 
-    findAll = (req: Request, res: Response): void => {
+    findAll = async (req: Request, res: Response): Promise<void> => {
         try {
             const page = Number(req.query.page ?? DEFAULT_PAGE);
             const limit = Number(req.query.limit ?? DEFAULT_LIMIT);
-            res.status(200).json(this.chatService.getPaginatedShifts(page, limit));
+            res.status(200).json(await this.chatService.getPaginatedShifts(page, limit));
         } catch (error) {
             sendError(res, error, "Unable to fetch chats");
         }
     };
 
-    findById = (req: Request<{ id: string }>, res: Response): void => {
+    findById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            const chat = this.chatService.findById(ChatIdSchema.parse(req.params.id));
+            const chat = await this.chatService.findById(ChatIdSchema.parse(req.params.id));
 
             if (!chat) {
                 res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
@@ -32,9 +32,9 @@ export class ChatController {
         }
     };
 
-    delete = (req: Request<{ id: string }>, res: Response): void => {
+    delete = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            if (!this.chatService.delete(ChatIdSchema.parse(req.params.id))) {
+            if (!(await this.chatService.delete(ChatIdSchema.parse(req.params.id)))) {
                 res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
                 return;
             }
@@ -45,9 +45,9 @@ export class ChatController {
         }
     };
 
-    update = (req: Request<{ id: string }>, res: Response): void => {
+    update = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
-            const chat = this.chatService.update(ChatIdSchema.parse(req.params.id), req.body);
+            const chat = await this.chatService.update(ChatIdSchema.parse(req.params.id), req.body);
 
             if (!chat) {
                 res.status(404).json({ status: "fail", message: "Chat not found", errors: [] });
@@ -60,9 +60,9 @@ export class ChatController {
         }
     };
 
-    create = (req: Request, res: Response): void => {
+    create = async (req: Request, res: Response): Promise<void> => {
         try {
-            const chat = this.chatService.create(req.body);
+            const chat = await this.chatService.create(req.body);
             res.status(201).json(chat);
         } catch (error) {
             sendError(res, error, "Unable to create chat");
