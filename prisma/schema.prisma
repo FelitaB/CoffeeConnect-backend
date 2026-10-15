@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Person {
+  id             Int        @id @default(autoincrement())
+  first_name     String
+  last_name      String
+  email          String     @unique
+  location       Location
+  hashedPassword String?
+  registered     Boolean    @default(false)
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  interests      Interest[]
+  sent_chats     Chat[]     @relation("ChatSender")
+  received_chats Chat[]     @relation("ChatReceiver")
+}
+
+model Interest {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  created DateTime @default(now())
+  people  Person[]
+}
+
+model Chat {
+  id          String     @id @default(uuid())
+  sender_id   Int
+  receiver_id Int
+  location_id String
+  datetime    DateTime
+  status      ChatStatus @default(PENDING)
+  created_at  DateTime   @default(now())
+
+  sender      Person     @relation("ChatSender", fields: [sender_id], references: [id])
+  receiver    Person     @relation("ChatReceiver", fields: [receiver_id], references: [id])
+
+  @@index([sender_id])
+  @@index([receiver_id])
+}
+
+enum ChatStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
+
+enum Location {
+  LONDON
+  BELFAST
+  MANCHESTER
+}
