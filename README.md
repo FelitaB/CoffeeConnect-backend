@@ -54,5 +54,14 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 
    The server listens on `http://localhost:5000`
 
+## Demonstration Requirements
+For the sake of the demonstration of CoffeeConnect, this is intended to be an internal tool that is deployed for use to all employees, so we must seed the databases with fake data of employees in order to show off the tool and a real-world demo.
+
+We do this, you must run the following commands
+```bash
+.venv/bin/python scripts/seed_people.py
+.venv/bin/python scripts/seed_interests.py
+```
+
 ## API Documentation
 The API endpoint usage is documented fully [here](docs/API.md).
