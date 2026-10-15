@@ -11,6 +11,10 @@ dist/
 .env
 .env.local
 
+.agents/
+.claude/
+.windsurf/
+
 # npm debug logs
 npm-debug.log*
 yarn-debug.log*
