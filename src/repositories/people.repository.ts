@@ -51,6 +51,28 @@ export class PeopleRepository
         });
     }
 
+    findCredentialsById(id: number): Promise<{ id: number, registered: boolean, hashedPassword: string | null } | null> {
+        return this.db.person.findUnique({
+            where: { id },
+            select: { id: true, registered: true, hashedPassword: true },
+        });
+    }
+
+    setPassword(id: number, hashedPassword: string): Promise<Person> {
+        return this.db.person.update({ where: { id }, data: { hashedPassword }, include: personInclude });
+    }
+
+    completeRegistration(id: number, interest_ids: number[]): Promise<Person> {
+        return this.db.person.update({
+            where: { id },
+            data: {
+                registered: true,
+                interests: { set: interest_ids.map((interestId) => ({ id: interestId })) },
+            },
+            include: personInclude,
+        });
+    }
+
     findInterestsByIds(ids: number[]): Promise<Interest[]> {
         return this.db.interest.findMany({ where: { id: { in: ids } } });
     }

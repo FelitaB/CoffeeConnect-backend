@@ -63,5 +63,7 @@ We do this, you must run the following commands
 .venv/bin/python scripts/seed_interests.py
 ```
 
+`seed_people.py` adds the employees from `userData/coffeeConnectUserDB.csv`. `seed_interests.py` only fills the `Interest` table; it doesn't give anyone interests. People pick their own when they complete registration.
+
 ## API Documentation
 The API endpoint usage is documented fully [here](docs/API.md).

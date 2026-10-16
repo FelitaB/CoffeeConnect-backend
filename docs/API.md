@@ -120,6 +120,39 @@ The chat is deleted. No response body is returned.
 
 ## People Endpoint
 
+### Get a specific person
+Retrieves a person by their 5-digit ID, including their interests. `hashedPassword` is never returned.
+
+* **URL:** `/api/people/:id`
+* **Method:** `GET`
+
+#### Request Parameters
+The 5-digit person ID is supplied in the URL.
+
+#### Example Response (200 OK)
+```json
+{
+  "id": 10059,
+  "first_name": "Jasmine",
+  "last_name": "Campbell",
+  "email": "jasmine.campbell@paconsulting.com",
+  "location": "LONDON",
+  "job_role": "CON",
+  "job_capability": "Digital Design",
+  "job_go_to_market": "Health",
+  "registered": false,
+  "created_at": "2026-10-15T14:30:00.000Z",
+  "updated_at": "2026-10-15T14:30:00.000Z",
+  "interests": [
+    { "id": 1, "name": "Coffee and cafes", "created": "2026-10-15T14:30:00.000Z" }
+  ]
+}
+```
+
+#### Error Responses
+* `400`: the ID is not a 5-digit number.
+* `404`: person not found.
+
 ### Check an email
 Checks whether an email belongs to a person whose `registered` flag is true. Unknown emails also return `registered: false`, so the response does not reveal which emails exist.
 
@@ -165,3 +198,54 @@ The `Person` object, without `hashedPassword`.
   "errors": []
 }
 ```
+
+### Set a password
+Hashes and saves a password for an existing person who is not registered yet. This does not mark the person as registered. That happens when registration is completed.
+
+> **Security note:** this endpoint does not yet verify that the caller owns the email inbox. Add email verification before going live.
+
+* **URL:** `/api/people/set-password`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "email": "jane.doe@paconsulting.com",
+  "password": "Coffee1234!"
+}
+```
+
+The password must be 8-20 characters and contain at least one capital letter, one number and one symbol (any character that isn't a letter, number or space).
+
+#### Example Response (200 OK)
+The `Person` object, without `hashedPassword`.
+
+#### Example Response (400 Bad Request)
+Returned for unknown emails, already registered people, or invalid input.
+```json
+{
+  "status": "fail",
+  "message": "A password can't be set for this email",
+  "errors": []
+}
+```
+
+### Complete registration
+Saves 3 to 10 interests for a person who has chosen a password and sets `registered` to `true`.
+
+* **URL:** `/api/people/:id/complete-registration`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "interest_ids": [1, 4, 9]
+}
+```
+
+#### Example Response (200 OK)
+The updated `Person` object, with `registered: true` and its `interests`.
+
+#### Error Responses
+* `400`: invalid interests, no password chosen yet, or already registered.
+* `404`: person not found.
