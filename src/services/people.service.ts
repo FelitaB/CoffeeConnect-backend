@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { JobRole, Location } from "../generated/prisma/client";
@@ -59,6 +60,16 @@ export const CreatePersonSchema = z.object({
 export const UpdatePersonSchema = CreatePersonSchema.partial().strict()
     .refine((changes) => Object.keys(changes).length > 0, "Provide one or more of: " + Object.keys(CreatePersonSchema.shape).join(", "));
 
+export const CheckEmailSchema = z.object({ email: EmailSchema });
+
+export const LoginSchema = z.object({
+    email: EmailSchema,
+    password: z.string().min(1, "Password is required"),
+});
+
+// Compared against when no stored hash exists so unknown emails take as long as known ones.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("coffee-connect-dummy-password", 10);
+
 export type CreatePersonInput = z.infer<typeof CreatePersonSchema>;
 export type UpdatePersonInput = z.infer<typeof UpdatePersonSchema>;
 
@@ -96,6 +107,26 @@ export class PeopleService
 
     delete(id: number): Promise<boolean> {
         return this.peopleRepository.delete(id);
+    }
+
+    // Unknown emails also report registered: false so callers can't tell which emails exist.
+    async checkEmail(body: unknown): Promise<{ registered: boolean }> {
+        const { email } = CheckEmailSchema.parse(body);
+        const credentials = await this.peopleRepository.findCredentialsByEmail(email);
+        return { registered: credentials?.registered ?? false };
+    }
+
+    async login(body: unknown): Promise<Person | null> {
+        const { email, password } = LoginSchema.parse(body);
+        const credentials = await this.peopleRepository.findCredentialsByEmail(email);
+        const storedHash = credentials?.registered ? credentials.hashedPassword : null;
+
+        const passwordMatches = await bcrypt.compare(password, storedHash ?? DUMMY_PASSWORD_HASH);
+        if (!storedHash || !passwordMatches) {
+            return null;
+        }
+
+        return this.peopleRepository.findByEmail(email);
     }
 
     async create(body: unknown): Promise<Person> {
