@@ -17,6 +17,20 @@ export class PeopleController {
         }
     };
 
+    findById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const person = await this.peopleService.findById(PersonIdSchema.parse(req.params.id));
+            if (!person) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(person);
+        } catch (error) {
+            sendError(res, error, "Unable to fetch person");
+        }
+    };
+
     create = async (req: Request, res: Response): Promise<void> => {
         try {
             const person = await this.peopleService.create(req.body);

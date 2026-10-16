@@ -120,6 +120,39 @@ The chat is deleted. No response body is returned.
 
 ## People Endpoint
 
+### Get a specific person
+Retrieves a person by their 5-digit ID, including their interests. `hashedPassword` is never returned.
+
+* **URL:** `/api/people/:id`
+* **Method:** `GET`
+
+#### Request Parameters
+The 5-digit person ID is supplied in the URL.
+
+#### Example Response (200 OK)
+```json
+{
+  "id": 10059,
+  "first_name": "Jasmine",
+  "last_name": "Campbell",
+  "email": "jasmine.campbell@paconsulting.com",
+  "location": "LONDON",
+  "job_role": "CON",
+  "job_capability": "Digital Design",
+  "job_go_to_market": "Health",
+  "registered": false,
+  "created_at": "2026-10-15T14:30:00.000Z",
+  "updated_at": "2026-10-15T14:30:00.000Z",
+  "interests": [
+    { "id": 1, "name": "Coffee and cafes", "created": "2026-10-15T14:30:00.000Z" }
+  ]
+}
+```
+
+#### Error Responses
+* `400`: the ID is not a 5-digit number.
+* `404`: person not found.
+
 ### Check an email
 Checks whether an email belongs to a person whose `registered` flag is true. Unknown emails also return `registered: false`, so the response does not reveal which emails exist.
 
