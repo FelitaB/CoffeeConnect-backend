@@ -67,6 +67,22 @@ export const LoginSchema = z.object({
     password: z.string().min(1, "Password is required"),
 });
 
+export const SetPasswordSchema = z.object({
+    email: EmailSchema,
+    password: z.string()
+        .min(8, "Password must be at least 8 characters")
+        .max(20, "Password must be at most 20 characters")
+        .regex(/[A-Z]/, "Password must contain at least one capital letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(/[^A-Za-z0-9\s]/, "Password must contain at least one symbol"),
+});
+
+export const CompleteRegistrationSchema = z.object({
+    interest_ids: z.array(z.number().int()).min(3, "Select at least 3 interests").max(10, "Select at most 10 interests"),
+});
+
+export class RegistrationError extends Error {}
+
 // Compared against when no stored hash exists so unknown emails take as long as known ones.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("coffee-connect-dummy-password", 10);
 
@@ -127,6 +143,40 @@ export class PeopleService
         }
 
         return this.peopleRepository.findByEmail(email);
+    }
+
+    // TODO: anyone who knows an unregistered colleague's email can set their password.
+    // Require proof of inbox ownership (e.g. an emailed one-time link) before going live.
+    async setPassword(body: unknown): Promise<Person> {
+        const { email, password } = SetPasswordSchema.parse(body);
+        const credentials = await this.peopleRepository.findCredentialsByEmail(email);
+        if (!credentials || credentials.registered) {
+            throw new RegistrationError("A password can't be set for this email");
+        }
+
+        return this.peopleRepository.setPassword(credentials.id, await bcrypt.hash(password, 10));
+    }
+
+    async completeRegistration(id: number, body: unknown): Promise<Person | null> {
+        const { interest_ids } = CompleteRegistrationSchema.parse(body);
+        const credentials = await this.peopleRepository.findCredentialsById(id);
+        if (!credentials) {
+            return null;
+        }
+        if (credentials.registered) {
+            throw new RegistrationError("This person is already registered");
+        }
+        if (!credentials.hashedPassword) {
+            throw new RegistrationError("Choose a password before completing registration");
+        }
+
+        const uniqueIds = [...new Set(interest_ids)];
+        const interests = await this.peopleRepository.findInterestsByIds(uniqueIds);
+        if (interests.length !== uniqueIds.length) {
+            throw new RegistrationError("One or more interest IDs do not exist");
+        }
+
+        return this.peopleRepository.completeRegistration(id, uniqueIds);
     }
 
     async create(body: unknown): Promise<Person> {

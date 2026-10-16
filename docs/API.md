@@ -165,3 +165,54 @@ The `Person` object, without `hashedPassword`.
   "errors": []
 }
 ```
+
+### Set a password
+Hashes and saves a password for an existing person who is not registered yet. This does not mark the person as registered. That happens when registration is completed.
+
+> **Security note:** this endpoint does not yet verify that the caller owns the email inbox. Add email verification before going live.
+
+* **URL:** `/api/people/set-password`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "email": "jane.doe@paconsulting.com",
+  "password": "Coffee1234!"
+}
+```
+
+The password must be 8-20 characters and contain at least one capital letter, one number and one symbol (any character that isn't a letter, number or space).
+
+#### Example Response (200 OK)
+The `Person` object, without `hashedPassword`.
+
+#### Example Response (400 Bad Request)
+Returned for unknown emails, already registered people, or invalid input.
+```json
+{
+  "status": "fail",
+  "message": "A password can't be set for this email",
+  "errors": []
+}
+```
+
+### Complete registration
+Saves 3 to 10 interests for a person who has chosen a password and sets `registered` to `true`.
+
+* **URL:** `/api/people/:id/complete-registration`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "interest_ids": [1, 4, 9]
+}
+```
+
+#### Example Response (200 OK)
+The updated `Person` object, with `registered: true` and its `interests`.
+
+#### Error Responses
+* `400`: invalid interests, no password chosen yet, or already registered.
+* `404`: person not found.

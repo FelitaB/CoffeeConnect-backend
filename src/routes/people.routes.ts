@@ -8,6 +8,8 @@ router.get("/", peopleController.findAll);
 router.post("/", peopleController.create);
 router.post("/check-email", peopleController.checkEmail);
 router.post("/login", peopleController.login);
+router.post("/set-password", peopleController.setPassword);
+router.post("/:id/complete-registration", peopleController.completeRegistration);
 router.post("/:id/spin", peopleController.spin);
 router.patch("/:id", peopleController.update);
 router.delete("/:id", peopleController.delete);

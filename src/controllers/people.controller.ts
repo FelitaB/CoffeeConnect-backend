@@ -48,6 +48,28 @@ export class PeopleController {
         }
     };
 
+    setPassword = async (req: Request, res: Response): Promise<void> => {
+        try {
+            res.status(200).json(await this.peopleService.setPassword(req.body));
+        } catch (error) {
+            sendError(res, error, "Unable to set password");
+        }
+    };
+
+    completeRegistration = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const person = await this.peopleService.completeRegistration(PersonIdSchema.parse(req.params.id), req.body);
+            if (!person) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(person);
+        } catch (error) {
+            sendError(res, error, "Unable to complete registration");
+        }
+    };
+
     update = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
             const person = await this.peopleService.update(PersonIdSchema.parse(req.params.id), req.body);
