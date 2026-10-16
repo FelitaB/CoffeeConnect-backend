@@ -26,6 +26,28 @@ export class PeopleController {
         }
     };
 
+    checkEmail = async (req: Request, res: Response): Promise<void> => {
+        try {
+            res.status(200).json(await this.peopleService.checkEmail(req.body));
+        } catch (error) {
+            sendError(res, error, "Unable to check email");
+        }
+    };
+
+    login = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const person = await this.peopleService.login(req.body);
+            if (!person) {
+                res.status(401).json({ status: "fail", message: "Invalid email or password", errors: [] });
+                return;
+            }
+
+            res.status(200).json(person);
+        } catch (error) {
+            sendError(res, error, "Unable to sign in");
+        }
+    };
+
     update = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
             const person = await this.peopleService.update(PersonIdSchema.parse(req.params.id), req.body);

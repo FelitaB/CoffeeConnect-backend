@@ -118,3 +118,50 @@ The chat ID is to be supplied in the URL
 The chat is deleted. No response body is returned.
 
 
+## People Endpoint
+
+### Check an email
+Checks whether an email belongs to a person whose `registered` flag is true. Unknown emails also return `registered: false`, so the response does not reveal which emails exist.
+
+* **URL:** `/api/people/check-email`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "email": "jane.doe@paconsulting.com"
+}
+```
+
+#### Example Response (200 OK)
+```json
+{
+  "registered": true
+}
+```
+
+### Log in
+Checks an email and password against the stored bcrypt hash. On success, returns the person without the password hash.
+
+* **URL:** `/api/people/login`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "email": "jane.doe@paconsulting.com",
+  "password": "your-password"
+}
+```
+
+#### Example Response (200 OK)
+The `Person` object, without `hashedPassword`.
+
+#### Example Response (401 Unauthorized)
+```json
+{
+  "status": "fail",
+  "message": "Invalid email or password",
+  "errors": []
+}
+```

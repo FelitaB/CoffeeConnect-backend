@@ -40,6 +40,17 @@ export class PeopleRepository
         return this.db.person.findUnique({ where: { id }, include: personInclude });
     }
 
+    findByEmail(email: string): Promise<Person | null> {
+        return this.db.person.findUnique({ where: { email }, include: personInclude });
+    }
+
+    findCredentialsByEmail(email: string): Promise<{ id: number, registered: boolean, hashedPassword: string | null } | null> {
+        return this.db.person.findUnique({
+            where: { email },
+            select: { id: true, registered: true, hashedPassword: true },
+        });
+    }
+
     findInterestsByIds(ids: number[]): Promise<Interest[]> {
         return this.db.interest.findMany({ where: { id: { in: ids } } });
     }
