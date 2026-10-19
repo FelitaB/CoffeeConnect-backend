@@ -16,6 +16,14 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 
 2. Create the development database in MySQL:
 
+   For a Homebrew MySQL installation where `root` has no password:
+
+   ```bash
+   mysql -u root
+   ```
+
+   If your MySQL account has a password, use:
+
    ```bash
    mysql -u root -p
    ```
@@ -35,7 +43,7 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
    cp .env.example .env
    ```
 
-   Edit `DATABASE_URL` in `.env` to use your MySQL username and password. URL-encode special characters in the password. The database name must match the database you created (`CoffeeConnect` by default).
+   The copied `.env.example` defaults to passwordless local MySQL. If your account uses a password, replace `DATABASE_URL` in `.env` with the password-protected example shown in `.env.example`. Replace `root` if needed and URL-encode special characters in the password. The database name must match the database you created (`CoffeeConnect` by default).
 
 4. Apply the checked-in Prisma migrations and generate the client:
 
@@ -54,10 +62,16 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 
    The server listens on `http://localhost:5000`
 
-## Demonstration Requirements
-For the sake of the demonstration of CoffeeConnect, this is intended to be an internal tool that is deployed for use to all employees, so we must seed the databases with fake data of employees in order to show off the tool and a real-world demo.
+## Seed Demonstration Data
+To populate the local database with demonstration employees and interests, create the Python virtual environment and install the seeding dependencies from the backend repository root:
 
-We do this, you must run the following commands
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r scripts/requirements.txt
+```
+
+Then run the seed scripts:
+
 ```bash
 .venv/bin/python scripts/seed_people.py
 .venv/bin/python scripts/seed_interests.py
