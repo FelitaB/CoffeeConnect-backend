@@ -52,6 +52,21 @@ Retrieves all the existing chats in the database in the form of an array of `Cha
 }
 ```
 
+### Get all chats involving a user
+Retrieves all chats where the user is either the sender or receiver, ordered by creation time (oldest first).
+
+* **URL:** `/api/chats/user/:userId`
+* **Method:** `GET`
+
+#### Request Parameters
+The user's 5-digit ID is supplied in the URL, for example `/api/chats/user/10059`.
+
+#### Response (200 OK)
+An array of `Chat` objects. Returns `[]` when no chats involve the user.
+
+#### Error Responses
+* `400`: the user ID is not a 5-digit number.
+
 ### Get specific chat
 Retrieves a specific chat by its ID.
 

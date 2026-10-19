@@ -32,6 +32,13 @@ export class ChatRepository
         return this.db.chat.findUnique({ where: { id } });
     }
 
+    findByUserId(userId: number): Promise<Chat[]> {
+        return this.db.chat.findMany({
+            where: { OR: [{ sender_id: userId }, { receiver_id: userId }] },
+            orderBy: { created_at: "asc" },
+        });
+    }
+
     async delete(id: string): Promise<boolean> {
         try {
             await this.db.chat.delete({ where: { id } });
