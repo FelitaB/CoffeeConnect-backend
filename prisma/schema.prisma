@@ -60,7 +60,7 @@ model Match {
   id         Int         @id @default(autoincrement())
   person_id  Int
   match_id   Int
-  status     MatchStatus @default(PENDING)
+  status     MatchStatus @default(OFFERED)
   created_at DateTime    @default(now())
   matched_at DateTime?
 
@@ -82,6 +82,7 @@ enum ChatStatus {
 }
 
 enum MatchStatus {
+  OFFERED
   PENDING
   ACCEPTED
   DECLINED

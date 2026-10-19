@@ -112,24 +112,35 @@ export class PeopleRepository
         });
     }
 
-    findPendingMatch(personId: number): Promise<Match | null> {
+    findOfferedMatch(personId: number): Promise<Match | null> {
         return this.db.match.findFirst({
-            where: { person_id: personId, status: MatchStatus.PENDING },
+            where: { person_id: personId, status: MatchStatus.OFFERED },
             orderBy: { created_at: "desc" },
         });
     }
 
-    findDeclinedIds(personId: number): Promise<Set<number>> {
+    findIncomingPendingMatch(personId: number, matchId: number): Promise<Match | null> {
+        return this.db.match.findFirst({
+            where: { id: matchId, match_id: personId, status: MatchStatus.PENDING },
+        });
+    }
+
+    async findDeclinedIds(personId: number): Promise<Set<number>> {
         return this.db.match.findMany({
-            where: { person_id: personId, status: MatchStatus.DECLINED },
-            select: { match_id: true },
-        }).then((matches) => new Set(matches.map((match) => match.match_id)));
+            where: {
+                status: MatchStatus.DECLINED,
+                OR: [{ person_id: personId }, { match_id: personId }],
+            },
+            select: { person_id: true, match_id: true },
+        }).then((matches) => new Set(matches.map((match) =>
+            match.person_id === personId ? match.match_id : match.person_id
+        )));
     }
 
     async findMatchedIds(personId: number): Promise<Set<number>> {
         const matches = await this.db.match.findMany({
             where: {
-                status: MatchStatus.ACCEPTED,
+                status: { in: [MatchStatus.PENDING, MatchStatus.ACCEPTED] },
                 OR: [{ person_id: personId }, { match_id: personId }],
             },
             select: { person_id: true, match_id: true },
@@ -141,9 +152,12 @@ export class PeopleRepository
         return ids;
     }
 
-    async findAcceptedMatchCountsSince(since: Date): Promise<Map<number, number>> {
+    async findActiveMatchCountsSince(since: Date): Promise<Map<number, number>> {
         const matches = await this.db.match.findMany({
-            where: { status: MatchStatus.ACCEPTED, matched_at: { gte: since } },
+            where: {
+                status: { in: [MatchStatus.PENDING, MatchStatus.ACCEPTED] },
+                matched_at: { gte: since },
+            },
             select: { person_id: true, match_id: true },
         });
         const counts = new Map<number, number>();
@@ -154,16 +168,19 @@ export class PeopleRepository
         return counts;
     }
 
-    createPendingMatch(personId: number, matchId: number): Promise<Match> {
+    createOfferedMatch(personId: number, matchId: number): Promise<Match> {
         return this.db.match.create({
-            data: { person_id: personId, match_id: matchId },
+            data: { person_id: personId, match_id: matchId, status: MatchStatus.OFFERED },
         });
     }
 
     updateMatchStatus(id: number, status: MatchStatus): Promise<Match> {
         return this.db.match.update({
             where: { id },
-            data: { status, matched_at: status === MatchStatus.ACCEPTED ? new Date() : null },
+            data: {
+                status,
+                ...(status === MatchStatus.PENDING ? { matched_at: new Date() } : {}),
+            },
         });
     }
 

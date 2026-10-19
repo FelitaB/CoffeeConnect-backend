@@ -44,6 +44,7 @@ export const JOB_GO_TO_MARKETS = [
 ] as const;
 
 export const PersonIdSchema = z.string().regex(/^\d{5}$/, "Person id must be a 5-digit number").transform(Number);
+export const MatchRecordIdSchema = z.string().regex(/^\d+$/, "Match id must be an integer").transform(Number);
 
 const EmailSchema = z.string().trim().toLowerCase()
     .pipe(z.email("A valid email is required"))
@@ -230,16 +231,16 @@ export class PeopleService
             return undefined;
         }
 
-        const matchCounts = await this.peopleRepository.findAcceptedMatchCountsSince(
+        const matchCounts = await this.peopleRepository.findActiveMatchCountsSince(
             new Date(Date.now() - WEEK_SECONDS * 1000)
         );
         this.assertUnderWeeklyLimit(id, matchCounts);
 
-        const pending = await this.peopleRepository.findPendingMatch(id);
-        if (pending) {
-            const pendingPerson = await this.peopleRepository.findById(pending.match_id);
-            if (pendingPerson) {
-                return { match: pendingPerson };
+        const offered = await this.peopleRepository.findOfferedMatch(id);
+        if (offered) {
+            const offeredPerson = await this.peopleRepository.findById(offered.match_id);
+            if (offeredPerson) {
+                return { match: offeredPerson };
             }
         }
 
@@ -254,7 +255,7 @@ export class PeopleService
 
         const match = findBestMatch(person, candidates);
         if (match) {
-            await this.peopleRepository.createPendingMatch(id, match.id);
+            await this.peopleRepository.createOfferedMatch(id, match.id);
         }
 
         return { match: match ?? null };
@@ -265,21 +266,21 @@ export class PeopleService
             return undefined;
         }
 
-        const pending = await this.requirePendingMatch(id);
-        const matchedPerson = await this.peopleRepository.findById(pending.match_id);
+        const offered = await this.requireOfferedMatch(id);
+        const matchedPerson = await this.peopleRepository.findById(offered.match_id);
         if (!matchedPerson) {
-            throw new HttpError(409, "The matched person no longer exists. Please spin again.");
+            throw new HttpError(409, "The offered person no longer exists. Please spin again.");
         }
 
-        const matchCounts = await this.peopleRepository.findAcceptedMatchCountsSince(
+        const matchCounts = await this.peopleRepository.findActiveMatchCountsSince(
             new Date(Date.now() - WEEK_SECONDS * 1000)
         );
         this.assertUnderWeeklyLimit(id, matchCounts);
-        if (this.hasReachedWeeklyLimit(pending.match_id, matchCounts)) {
+        if (this.hasReachedWeeklyLimit(offered.match_id, matchCounts)) {
             throw new HttpError(409, "This person has reached their weekly match limit. Please spin again.");
         }
 
-        const match = await this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.ACCEPTED);
+        const match = await this.peopleRepository.updateMatchStatus(offered.id, MatchStatus.PENDING);
         return { match, person: matchedPerson };
     }
 
@@ -288,17 +289,44 @@ export class PeopleService
             return false;
         }
 
-        const pending = await this.requirePendingMatch(id);
+        const offered = await this.requireOfferedMatch(id);
+        await this.peopleRepository.updateMatchStatus(offered.id, MatchStatus.DECLINED);
+        return true;
+    }
+
+    async acceptIncomingMatch(personId: number, matchId: number): Promise<Match | undefined> {
+        if (!await this.peopleRepository.findById(personId)) {
+            return undefined;
+        }
+
+        const pending = await this.peopleRepository.findIncomingPendingMatch(personId, matchId);
+        if (!pending) {
+            throw new HttpError(409, "No incoming pending match found.");
+        }
+
+        return this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.ACCEPTED);
+    }
+
+    async declineIncomingMatch(personId: number, matchId: number): Promise<boolean> {
+        if (!await this.peopleRepository.findById(personId)) {
+            return false;
+        }
+
+        const pending = await this.peopleRepository.findIncomingPendingMatch(personId, matchId);
+        if (!pending) {
+            throw new HttpError(409, "No incoming pending match found.");
+        }
+
         await this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.DECLINED);
         return true;
     }
 
-    private async requirePendingMatch(id: number): Promise<Match> {
-        const pending = await this.peopleRepository.findPendingMatch(id);
-        if (!pending) {
-            throw new HttpError(409, "No pending match. Spin first.");
+    private async requireOfferedMatch(id: number): Promise<Match> {
+        const offered = await this.peopleRepository.findOfferedMatch(id);
+        if (!offered) {
+            throw new HttpError(409, "No offered match. Spin first.");
         }
-        return pending;
+        return offered;
     }
 
     private hasReachedWeeklyLimit(id: number, counts: Map<number, number>): boolean {
