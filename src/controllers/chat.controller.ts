@@ -17,6 +17,14 @@ export class ChatController {
         }
     };
 
+    findByUserId = async (req: Request<{ userId: string }>, res: Response): Promise<void> => {
+        try {
+            res.status(200).json(await this.chatService.findByUserId(Number(req.params.userId)));
+        } catch (error) {
+            sendError(res, error, "Unable to fetch user chats");
+        }
+    };
+
     findById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
         try {
             const chat = await this.chatService.findById(ChatIdSchema.parse(req.params.id));

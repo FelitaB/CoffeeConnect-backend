@@ -47,6 +47,11 @@ export class ChatService
         return this.chatRepository.findById(id);
     }
 
+    findByUserId(userId: number): Promise<Chat[]> {
+        fiveDigitId("User ID must be 5 digits").parse(userId);
+        return this.chatRepository.findByUserId(userId);
+    }
+
     delete(id: string): Promise<boolean> {
         return this.chatRepository.delete(id);
     }
