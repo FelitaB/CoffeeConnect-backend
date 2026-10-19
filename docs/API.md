@@ -264,3 +264,42 @@ The updated `Person` object, with `registered: true` and its `interests`.
 #### Error Responses
 * `400`: invalid interests, no password chosen yet, or already registered.
 * `404`: person not found.
+
+### Spin for a match
+Returns an offered match for the person. A new offer does not count toward the two active matches per week until the spinner accepts it. Existing pending and accepted matches do count.
+
+* **URL:** `/api/people/:id/spin`
+* **Method:** `POST`
+
+#### Example Response (200 OK)
+```json
+{
+  "match": {
+    "id": 10042,
+    "first_name": "Matilda",
+    "last_name": "Turner"
+  }
+}
+```
+
+#### Error Responses
+* `404`: person not found.
+* `429`: the person already has two pending or accepted matches in the last seven days.
+
+### Accept or decline an offered match
+The person who spun can accept the offer, changing it to `PENDING` while the matched person decides, or decline it. Declined pairs are excluded from future spins for either person.
+
+* **Accept URL:** `/api/people/:id/spin/accept`
+* **Decline URL:** `/api/people/:id/spin/decline`
+* **Method:** `POST`
+
+Accepting checks that both people have a free weekly match slot. The accepted offer becomes a pending match and counts for both people.
+
+### Respond to a pending match
+The matched person accepts or declines a pending match using its match record ID.
+
+* **Accept URL:** `/api/people/:id/matches/:matchId/accept`
+* **Decline URL:** `/api/people/:id/matches/:matchId/decline`
+* **Method:** `POST`
+
+Accepting changes the match status to `ACCEPTED`; declining changes it to `DECLINED`. The `:id` must be the matched person's ID, and `:matchId` is the match record ID.

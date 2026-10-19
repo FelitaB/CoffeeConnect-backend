@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 
-import { PeopleService, PersonIdSchema } from "../services/people.service";
+import { MatchRecordIdSchema, PeopleService, PersonIdSchema } from "../services/people.service";
 import { sendError } from "../utils/errors";
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from "../utils/pagination";
 
@@ -122,6 +122,66 @@ export class PeopleController {
             res.status(200).json(result);
         } catch (error) {
             sendError(res, error, "Unable to spin for a match");
+        }
+    };
+
+    acceptMatch = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const result = await this.peopleService.acceptMatch(PersonIdSchema.parse(req.params.id));
+            if (!result) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(201).json(result);
+        } catch (error) {
+            sendError(res, error, "Unable to accept match");
+        }
+    };
+
+    declineMatch = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            if (!(await this.peopleService.declineMatch(PersonIdSchema.parse(req.params.id)))) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(204).end();
+        } catch (error) {
+            sendError(res, error, "Unable to decline match");
+        }
+    };
+
+    acceptIncomingMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
+        try {
+            const result = await this.peopleService.acceptIncomingMatch(
+                PersonIdSchema.parse(req.params.id),
+                MatchRecordIdSchema.parse(req.params.matchId),
+            );
+            if (!result) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(result);
+        } catch (error) {
+            sendError(res, error, "Unable to accept incoming match");
+        }
+    };
+
+    declineIncomingMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
+        try {
+            if (!(await this.peopleService.declineIncomingMatch(
+                PersonIdSchema.parse(req.params.id),
+                MatchRecordIdSchema.parse(req.params.matchId),
+            ))) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(204).end();
+        } catch (error) {
+            sendError(res, error, "Unable to decline incoming match");
         }
     };
 }
