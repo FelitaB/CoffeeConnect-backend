@@ -29,6 +29,8 @@ model Person {
   interests      Interest[]
   sent_chats     Chat[]     @relation("ChatSender")
   received_chats Chat[]     @relation("ChatReceiver")
+  initiated_matches Match[]  @relation("MatchPerson")
+  received_matches  Match[]  @relation("MatchCandidate")
 }
 
 model Interest {
@@ -54,12 +56,35 @@ model Chat {
   @@index([receiver_id])
 }
 
+model Match {
+  id         Int         @id @default(autoincrement())
+  person_id  Int
+  match_id   Int
+  status     MatchStatus @default(PENDING)
+  created_at DateTime    @default(now())
+  matched_at DateTime?
+
+  person Person @relation("MatchPerson", fields: [person_id], references: [id], onDelete: Cascade)
+  match  Person @relation("MatchCandidate", fields: [match_id], references: [id], onDelete: Cascade)
+
+  @@unique([person_id, match_id])
+  @@index([person_id, status])
+  @@index([match_id, status])
+  @@index([status, matched_at])
+}
+
 enum ChatStatus {
   PENDING
   ACCEPTED
   DECLINED
   COMPLETED
   CANCELLED
+}
+
+enum MatchStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
 
 enum JobRole {

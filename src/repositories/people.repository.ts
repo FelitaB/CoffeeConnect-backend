@@ -1,7 +1,7 @@
-import type { Interest, JobRole, Location, Prisma } from "../generated/prisma/client";
+import { MatchStatus, type Interest, type JobRole, type Location, type Match, type Prisma } from "../generated/prisma/client";
 import { isRecordNotFound, prisma, type AppPrismaClient } from "../lib/prisma";
 
-export type { Interest };
+export { MatchStatus, type Interest, type Match };
 
 const personInclude = { interests: true } satisfies Prisma.PersonInclude;
 
@@ -109,6 +109,61 @@ export class PeopleRepository
                 interests: { connect: interest_ids.map((id) => ({ id })) },
             },
             include: personInclude,
+        });
+    }
+
+    findPendingMatch(personId: number): Promise<Match | null> {
+        return this.db.match.findFirst({
+            where: { person_id: personId, status: MatchStatus.PENDING },
+            orderBy: { created_at: "desc" },
+        });
+    }
+
+    findDeclinedIds(personId: number): Promise<Set<number>> {
+        return this.db.match.findMany({
+            where: { person_id: personId, status: MatchStatus.DECLINED },
+            select: { match_id: true },
+        }).then((matches) => new Set(matches.map((match) => match.match_id)));
+    }
+
+    async findMatchedIds(personId: number): Promise<Set<number>> {
+        const matches = await this.db.match.findMany({
+            where: {
+                status: MatchStatus.ACCEPTED,
+                OR: [{ person_id: personId }, { match_id: personId }],
+            },
+            select: { person_id: true, match_id: true },
+        });
+        const ids = new Set<number>();
+        for (const match of matches) {
+            ids.add(match.person_id === personId ? match.match_id : match.person_id);
+        }
+        return ids;
+    }
+
+    async findAcceptedMatchCountsSince(since: Date): Promise<Map<number, number>> {
+        const matches = await this.db.match.findMany({
+            where: { status: MatchStatus.ACCEPTED, matched_at: { gte: since } },
+            select: { person_id: true, match_id: true },
+        });
+        const counts = new Map<number, number>();
+        for (const match of matches) {
+            counts.set(match.person_id, (counts.get(match.person_id) ?? 0) + 1);
+            counts.set(match.match_id, (counts.get(match.match_id) ?? 0) + 1);
+        }
+        return counts;
+    }
+
+    createPendingMatch(personId: number, matchId: number): Promise<Match> {
+        return this.db.match.create({
+            data: { person_id: personId, match_id: matchId },
+        });
+    }
+
+    updateMatchStatus(id: number, status: MatchStatus): Promise<Match> {
+        return this.db.match.update({
+            where: { id },
+            data: { status, matched_at: status === MatchStatus.ACCEPTED ? new Date() : null },
         });
     }
 

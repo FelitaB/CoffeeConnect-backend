@@ -61,9 +61,10 @@ We do this, you must run the following commands
 ```bash
 .venv/bin/python scripts/seed_people.py
 .venv/bin/python scripts/seed_interests.py
+.venv/bin/python scripts/seed_person_interests.py
 ```
 
-`seed_people.py` adds the employees from `userData/coffeeConnectUserDB.csv`. `seed_interests.py` only fills the `Interest` table; it doesn't give anyone interests. People pick their own when they complete registration.
+`seed_people.py` adds the employees from `userData/coffeeConnectUserDB.csv`. `seed_interests.py` fills the `Interest` table. `seed_person_interests.py` is for local demos: it assigns synthetic interests to people so each has 3-10 interests. It is safe to re-run and does not remove existing links.
 
 ## API Documentation
 The API endpoint usage is documented fully [here](docs/API.md).

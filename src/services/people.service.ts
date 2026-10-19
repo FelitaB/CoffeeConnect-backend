@@ -2,10 +2,13 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { JobRole, Location } from "../generated/prisma/client";
-import { PeopleRepository, type Person, type PersonUpdate } from "../repositories/people.repository";
+import { MatchStatus, PeopleRepository, type Match, type Person, type PersonUpdate } from "../repositories/people.repository";
+import { HttpError } from "../utils/errors";
 import { PaginationSchema, type Paginated } from "../utils/pagination";
 
 const EMAIL_DOMAIN = "@paconsulting.com";
+const MAX_MATCHES_PER_WEEK = 2;
+const WEEK_SECONDS = 7 * 24 * 60 * 60;
 
 export const JOB_CAPABILITIES = [
     "Advanced Data Analytics",
@@ -89,11 +92,22 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync("coffee-connect-dummy-password", 10)
 export type CreatePersonInput = z.infer<typeof CreatePersonSchema>;
 export type UpdatePersonInput = z.infer<typeof UpdatePersonSchema>;
 
-// Placeholder: the matching algorithm will be implemented later.
+// Shared interests outrank location (score = shared * 2 + same office); ties are broken randomly.
 export function findBestMatch(person: Person, candidates: Person[]): Person | undefined {
-    void person;
-    void candidates;
-    return undefined;
+    if (candidates.length === 0) {
+        return undefined;
+    }
+
+    const myInterests = new Set(person.interests.map((interest) => interest.id));
+    const scored = candidates.map((candidate) => ({
+        candidate,
+        score: candidate.interests.filter((interest) => myInterests.has(interest.id)).length * 2
+            + (candidate.location === person.location ? 1 : 0),
+    }));
+
+    const best = Math.max(...scored.map((entry) => entry.score));
+    const top = scored.filter((entry) => entry.score === best);
+    return top[Math.floor(Math.random() * top.length)]?.candidate;
 }
 
 export class PeopleService
@@ -216,8 +230,85 @@ export class PeopleService
             return undefined;
         }
 
-        const candidates = (await this.peopleRepository.findAll()).filter((candidate) => candidate.id !== id);
-        return { match: findBestMatch(person, candidates) ?? null };
+        const matchCounts = await this.peopleRepository.findAcceptedMatchCountsSince(
+            new Date(Date.now() - WEEK_SECONDS * 1000)
+        );
+        this.assertUnderWeeklyLimit(id, matchCounts);
+
+        const pending = await this.peopleRepository.findPendingMatch(id);
+        if (pending) {
+            const pendingPerson = await this.peopleRepository.findById(pending.match_id);
+            if (pendingPerson) {
+                return { match: pendingPerson };
+            }
+        }
+
+        const [declinedIds, matchedIds] = await Promise.all([
+            this.peopleRepository.findDeclinedIds(id),
+            this.peopleRepository.findMatchedIds(id),
+        ]);
+        const excluded = new Set([id, ...declinedIds, ...matchedIds]);
+        const candidates = (await this.peopleRepository.findAll())
+            .filter((candidate) => !excluded.has(candidate.id)
+                && !this.hasReachedWeeklyLimit(candidate.id, matchCounts));
+
+        const match = findBestMatch(person, candidates);
+        if (match) {
+            await this.peopleRepository.createPendingMatch(id, match.id);
+        }
+
+        return { match: match ?? null };
+    }
+
+    async acceptMatch(id: number): Promise<{ match: Match, person: Person } | undefined> {
+        if (!await this.peopleRepository.findById(id)) {
+            return undefined;
+        }
+
+        const pending = await this.requirePendingMatch(id);
+        const matchedPerson = await this.peopleRepository.findById(pending.match_id);
+        if (!matchedPerson) {
+            throw new HttpError(409, "The matched person no longer exists. Please spin again.");
+        }
+
+        const matchCounts = await this.peopleRepository.findAcceptedMatchCountsSince(
+            new Date(Date.now() - WEEK_SECONDS * 1000)
+        );
+        this.assertUnderWeeklyLimit(id, matchCounts);
+        if (this.hasReachedWeeklyLimit(pending.match_id, matchCounts)) {
+            throw new HttpError(409, "This person has reached their weekly match limit. Please spin again.");
+        }
+
+        const match = await this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.ACCEPTED);
+        return { match, person: matchedPerson };
+    }
+
+    async declineMatch(id: number): Promise<boolean> {
+        if (!await this.peopleRepository.findById(id)) {
+            return false;
+        }
+
+        const pending = await this.requirePendingMatch(id);
+        await this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.DECLINED);
+        return true;
+    }
+
+    private async requirePendingMatch(id: number): Promise<Match> {
+        const pending = await this.peopleRepository.findPendingMatch(id);
+        if (!pending) {
+            throw new HttpError(409, "No pending match. Spin first.");
+        }
+        return pending;
+    }
+
+    private hasReachedWeeklyLimit(id: number, counts: Map<number, number>): boolean {
+        return (counts.get(id) ?? 0) >= MAX_MATCHES_PER_WEEK;
+    }
+
+    private assertUnderWeeklyLimit(id: number, counts: Map<number, number>): void {
+        if (this.hasReachedWeeklyLimit(id, counts)) {
+            throw new HttpError(429, `You can have at most ${MAX_MATCHES_PER_WEEK} matches per week.`);
+        }
     }
 
     private async resolveInterestIds(ids: number[]): Promise<number[]> {

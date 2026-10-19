@@ -12,6 +12,8 @@ router.post("/login", peopleController.login);
 router.post("/set-password", peopleController.setPassword);
 router.post("/:id/complete-registration", peopleController.completeRegistration);
 router.post("/:id/spin", peopleController.spin);
+router.post("/:id/spin/accept", peopleController.acceptMatch);
+router.post("/:id/spin/decline", peopleController.declineMatch);
 router.patch("/:id", peopleController.update);
 router.delete("/:id", peopleController.delete);
 

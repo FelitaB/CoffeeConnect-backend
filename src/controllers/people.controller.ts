@@ -124,4 +124,31 @@ export class PeopleController {
             sendError(res, error, "Unable to spin for a match");
         }
     };
+
+    acceptMatch = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const result = await this.peopleService.acceptMatch(PersonIdSchema.parse(req.params.id));
+            if (!result) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(201).json(result);
+        } catch (error) {
+            sendError(res, error, "Unable to accept match");
+        }
+    };
+
+    declineMatch = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            if (!(await this.peopleService.declineMatch(PersonIdSchema.parse(req.params.id)))) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(204).end();
+        } catch (error) {
+            sendError(res, error, "Unable to decline match");
+        }
+    };
 }
