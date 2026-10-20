@@ -169,6 +169,20 @@ export class PeopleController {
         }
     };
 
+    findPendingMatches = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const matches = await this.peopleService.findPendingMatches(PersonIdSchema.parse(req.params.id));
+            if (!matches) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+
+            res.status(200).json(matches);
+        } catch (error) {
+            sendError(res, error, "Unable to fetch pending matches");
+        }
+    };
+
     declineIncomingMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
         try {
             if (!(await this.peopleService.declineIncomingMatch(

@@ -307,6 +307,14 @@ export class PeopleService
         return this.peopleRepository.updateMatchStatus(pending.id, MatchStatus.ACCEPTED);
     }
 
+    async findPendingMatches(personId: number) {
+        if (!await this.peopleRepository.findById(personId)) {
+            return undefined;
+        }
+
+        return this.peopleRepository.findPendingMatches(personId);
+    }
+
     async declineIncomingMatch(personId: number, matchId: number): Promise<boolean> {
         if (!await this.peopleRepository.findById(personId)) {
             return false;
