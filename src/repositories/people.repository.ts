@@ -125,6 +125,22 @@ export class PeopleRepository
         });
     }
 
+    async findPendingMatches(personId: number) {
+        const [incoming, outgoing] = await Promise.all([
+            this.db.match.findMany({
+                where: { match_id: personId, status: MatchStatus.PENDING },
+                include: { person: { include: personInclude } },
+                orderBy: { matched_at: "asc" },
+            }),
+            this.db.match.findMany({
+                where: { person_id: personId, status: MatchStatus.PENDING },
+                include: { match: { include: personInclude } },
+                orderBy: { matched_at: "asc" },
+            }),
+        ]);
+        return { incoming, outgoing };
+    }
+
     async findDeclinedIds(personId: number): Promise<Set<number>> {
         return this.db.match.findMany({
             where: {

@@ -280,11 +280,15 @@ The person who spun can accept the offer, changing it to `PENDING` while the mat
 
 Accepting checks that both people have a free weekly match slot. The accepted offer becomes a pending match and counts for both people.
 
-### Respond to a pending match
-The matched person accepts or declines a pending match using its match record ID.
+### List and respond to pending matches
+Lists pending matches involving the person, separated into matches they need to respond to (`incoming`) and matches waiting for their colleague (`outgoing`). Incoming matches can be accepted or declined using the match record ID.
 
+* **List URL:** `/api/people/:id/matches/pending`
+* **List Method:** `GET`
 * **Accept URL:** `/api/people/:id/matches/:matchId/accept`
 * **Decline URL:** `/api/people/:id/matches/:matchId/decline`
-* **Method:** `POST`
+* **Accept/Decline Method:** `POST`
 
 Accepting changes the match status to `ACCEPTED`; declining changes it to `DECLINED`. The `:id` must be the matched person's ID, and `:matchId` is the match record ID.
+
+The list response includes `incoming` and `outgoing` arrays. Incoming entries include the initiating person's profile; outgoing entries include the matched person's profile.
