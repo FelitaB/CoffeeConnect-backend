@@ -6,6 +6,26 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 - MySQL 8.x running locally
 - A MySQL account allowed to create and alter the `CoffeeConnect` database
 
+## Automatic Setup (macOS)
+
+From the backend repository root, run:
+
+```bash
+bash scripts/setup-macos.sh
+```
+
+The script installs missing Node.js (22 LTS) and MySQL dependencies using [Homebrew](https://brew.sh), starts Homebrew-managed MySQL if needed, installs npm dependencies, creates `.env` only if missing, creates the configured local database if needed, and applies Prisma migrations and generates the client. Install Homebrew first if you need the script to install dependencies.
+
+The default connection uses passwordless MySQL as `root`. For another account, password, port, or database name, create `.env` from `.env.example` and edit `DATABASE_URL` before running setup. Existing `.env` files are preserved. Only local MySQL connections are supported by this script. If credentials fail, update `.env` and rerun it.
+
+To also seed demonstration data and start the API:
+
+```bash
+bash scripts/setup-macos.sh --seed --start
+```
+
+`--seed` creates or reuses `.venv`, installs the seeding requirements (and Python via Homebrew if missing), and runs the three seed scripts in order. Omit `--start` to finish without starting the server. Setup can also be invoked with `npm run setup:macos -- --seed --start` once npm is installed.
+
 ## Run Locally
 
 1. Install dependencies from the repository root:
@@ -48,8 +68,8 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 4. Apply the checked-in Prisma migrations and generate the client:
 
    ```bash
-   npx prisma migrate deploy
-   npx prisma generate
+   npx prisma migrate deploy --config prisma7.config.ts
+   npx prisma generate --config prisma7.config.ts
    ```
 
    Migrations create the application tables. They do not insert sample records; the project does not currently define a Prisma seed command.
