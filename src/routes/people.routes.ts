@@ -8,6 +8,7 @@ router.get("/", peopleController.findAll);
 router.get("/:id", peopleController.findById);
 router.post("/", peopleController.create);
 router.post("/check-email", peopleController.checkEmail);
+router.post("/verify-setup-identity", peopleController.verifySetupIdentity);
 router.post("/login", peopleController.login);
 router.post("/set-password", peopleController.setPassword);
 router.post("/:id/complete-registration", peopleController.completeRegistration);

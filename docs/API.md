@@ -214,8 +214,31 @@ The `Person` object, without `hashedPassword`.
 }
 ```
 
+### Verify setup identity
+Checks whether a work email and 5-digit user ID match the same person awaiting registration.
+
+* **URL:** `/api/people/verify-setup-identity`
+* **Method:** `POST`
+
+#### Request Body
+```json
+{
+  "email": "jane.doe@paconsulting.com",
+  "user_id": "12345"
+}
+```
+
+#### Example Response (200 OK)
+```json
+{
+  "verified": true
+}
+```
+
+Unknown emails, mismatched IDs, and already registered people return `verified: false`. Invalid input returns `400`.
+
 ### Set a password
-Hashes and saves a password for an existing person who is not registered yet. This does not mark the person as registered. That happens when registration is completed.
+Hashes and saves a password for an existing person who is not registered yet, requiring a matching email and user ID. This does not mark the person as registered. That happens when registration is completed.
 
 > **Security note:** this endpoint does not yet verify that the caller owns the email inbox. Add email verification before going live.
 
@@ -226,6 +249,7 @@ Hashes and saves a password for an existing person who is not registered yet. Th
 ```json
 {
   "email": "jane.doe@paconsulting.com",
+  "user_id": "12345",
   "password": "Coffee1234!"
 }
 ```
@@ -236,11 +260,11 @@ The password must be 8-20 characters and contain at least one capital letter, on
 The `Person` object, without `hashedPassword`.
 
 #### Example Response (400 Bad Request)
-Returned for unknown emails, already registered people, or invalid input.
+Returned for unknown emails, mismatched IDs, already registered people, or invalid input.
 ```json
 {
   "status": "fail",
-  "message": "A password can't be set for this email",
+  "message": "Unable to verify this email and user ID",
   "errors": []
 }
 ```
