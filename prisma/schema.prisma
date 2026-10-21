@@ -63,6 +63,7 @@ model Match {
   status     MatchStatus @default(OFFERED)
   created_at DateTime    @default(now())
   matched_at DateTime?
+  completed_at DateTime?
 
   person Person @relation("MatchPerson", fields: [person_id], references: [id], onDelete: Cascade)
   match  Person @relation("MatchCandidate", fields: [match_id], references: [id], onDelete: Cascade)
