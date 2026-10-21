@@ -48,8 +48,8 @@ CoffeeConnect pairs colleagues up for casual coffee chats based on shared passio
 4. Apply the checked-in Prisma migrations and generate the client:
 
    ```bash
-   npx prisma migrate deploy
-   npx prisma generate
+   npx prisma migrate deploy --config prisma7.config.ts
+   npx prisma generate --config prisma7.config.ts
    ```
 
    Migrations create the application tables. They do not insert sample records; the project does not currently define a Prisma seed command.
@@ -82,3 +82,79 @@ Then run the seed scripts:
 
 ## API Documentation
 The API endpoint usage is documented fully [here](docs/API.md).
+
+## Call History
+
+The `feature/call-history` branch adds an optional `Match.completed_at` column via
+`prisma/migrations/20261020120000_add_match_completion/migration.sql`. Existing rows
+remain unchanged apart from the new null column; no calls are assumed to have happened.
+The feature requires this migration before its endpoints are used.
+
+### Update An Existing Local Database
+
+Each developer must run these steps against their own local MySQL database after
+obtaining the corresponding backend and frontend code. Updating one developer's
+local database does not update anyone else's. Git branches do not isolate databases:
+check the target before applying a migration, and coordinate any shared environment.
+
+1. Stop your running backend, open a terminal in the backend repository, and install
+   the dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Check that `DATABASE_URL` in your existing `.env` points to your intended local
+   database, normally `CoffeeConnect` at `localhost:3306`. Keep your own MySQL
+   credentials; do not overwrite `.env` with a colleague's file or commit it to Git.
+
+3. Back up that database before proceeding. In MySQL Workbench, use **Server > Data
+   Export**, select the intended schema, choose **Dump Structure and Data**, and
+   export to a self-contained file in a private location outside the repositories.
+   Confirm the export succeeds. Backups can contain personal data and password hashes;
+   do not commit or share them casually. If the backup fails, stop here.
+
+4. Check pending migrations:
+
+   ```bash
+   npx prisma migrate status --config prisma7.config.ts
+   ```
+
+   For an otherwise up-to-date database, the only pending migration should be
+   `20261020120000_add_match_completion`. If unexpected migrations, failed migrations,
+   or schema-history errors are reported, stop and review them with the team.
+   If the schema is already up to date, no migration needs applying.
+
+5. Apply the reviewed migration and regenerate the Prisma client:
+
+   ```bash
+   npx prisma migrate deploy --config prisma7.config.ts
+   npx prisma generate --config prisma7.config.ts
+   ```
+
+   `migrate deploy` applies **all pending migrations**, not just the completion
+   migration. Proceed only after reviewing step 4. The completion migration adds a
+   nullable date column; existing matches stay uncompleted and existing data is kept.
+
+6. Verify the schema and restart the API:
+
+   ```bash
+   npx prisma migrate status --config prisma7.config.ts
+   npm run dev
+   ```
+
+   The status should report that the schema is up to date. Keep the API running at
+   `http://localhost:5000` and follow the frontend README to open `/meetups`.
+
+Do not reset, drop, recreate, or reseed an existing database for this update. Fresh
+installations should instead follow **Run Locally** and **Seed Demonstration Data**
+above. A shared deployment requires a coordinated migration by its database owner.
+
+`prisma generate` updates local client code only; it does not apply migrations.
+Completion is manually confirmed by either participant, without calendar scheduling
+or Teams call-log access. Completed pairs stay excluded from spins and retain their
+existing weekly match count. This workflow uses Match records, not the separate Chat API.
+
+Run the database-independent regression tests with `npm test` and check backend types
+with `npx tsc --noEmit`. Tests inject repositories or database doubles and do not
+connect to or modify the configured database.
