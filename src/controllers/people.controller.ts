@@ -48,6 +48,14 @@ export class PeopleController {
         }
     };
 
+    verifySetupIdentity = async (req: Request, res: Response): Promise<void> => {
+        try {
+            res.status(200).json(await this.peopleService.verifySetupIdentity(req.body));
+        } catch (error) {
+            sendError(res, error, "Unable to verify account");
+        }
+    };
+
     login = async (req: Request, res: Response): Promise<void> => {
         try {
             const person = await this.peopleService.login(req.body);

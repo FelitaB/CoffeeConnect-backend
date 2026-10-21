@@ -66,6 +66,11 @@ export const UpdatePersonSchema = CreatePersonSchema.partial().strict()
 
 export const CheckEmailSchema = z.object({ email: EmailSchema });
 
+export const VerifySetupIdentitySchema = z.object({
+    email: EmailSchema,
+    user_id: PersonIdSchema,
+});
+
 export const LoginSchema = z.object({
     email: EmailSchema,
     password: z.string().min(1, "Password is required"),
@@ -73,6 +78,7 @@ export const LoginSchema = z.object({
 
 export const SetPasswordSchema = z.object({
     email: EmailSchema,
+    user_id: PersonIdSchema,
     password: z.string()
         .min(8, "Password must be at least 8 characters")
         .max(20, "Password must be at most 20 characters")
@@ -160,13 +166,17 @@ export class PeopleService
         return this.peopleRepository.findByEmail(email);
     }
 
-    // TODO: anyone who knows an unregistered colleague's email can set their password.
-    // Require proof of inbox ownership (e.g. an emailed one-time link) before going live.
-    async setPassword(body: unknown): Promise<Person> {
-        const { email, password } = SetPasswordSchema.parse(body);
+    async verifySetupIdentity(body: unknown): Promise<{ verified: boolean }> {
+        const { email, user_id } = VerifySetupIdentitySchema.parse(body);
         const credentials = await this.peopleRepository.findCredentialsByEmail(email);
-        if (!credentials || credentials.registered) {
-            throw new RegistrationError("A password can't be set for this email");
+        return { verified: !!credentials && !credentials.registered && credentials.id === user_id };
+    }
+
+    async setPassword(body: unknown): Promise<Person> {
+        const { email, user_id, password } = SetPasswordSchema.parse(body);
+        const credentials = await this.peopleRepository.findCredentialsByEmail(email);
+        if (!credentials || credentials.registered || credentials.id !== user_id) {
+            throw new RegistrationError("Unable to verify this email and user ID");
         }
 
         return this.peopleRepository.setPassword(credentials.id, await bcrypt.hash(password, 10));
