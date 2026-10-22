@@ -125,6 +125,33 @@ export class PeopleRepository
         });
     }
 
+    findMeetups(personId: number) {
+        return this.db.match.findMany({
+            where: {
+                status: { in: [MatchStatus.PENDING, MatchStatus.ACCEPTED] },
+                OR: [{ person_id: personId }, { match_id: personId }],
+            },
+            include: {
+                person: { include: personInclude },
+                match: { include: personInclude },
+            },
+            orderBy: [{ completed_at: "desc" }, { matched_at: "desc" }, { id: "desc" }],
+        });
+    }
+
+    async completeMatch(personId: number, matchId: number): Promise<Match | null> {
+        const where = {
+            id: matchId,
+            status: MatchStatus.ACCEPTED,
+            OR: [{ person_id: personId }, { match_id: personId }],
+        };
+        await this.db.match.updateMany({
+            where: { ...where, completed_at: null },
+            data: { completed_at: new Date() },
+        });
+        return this.db.match.findFirst({ where: { ...where, completed_at: { not: null } } });
+    }
+
     async findPendingMatches(personId: number) {
         const [incoming, outgoing] = await Promise.all([
             this.db.match.findMany({

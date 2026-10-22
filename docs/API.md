@@ -331,3 +331,52 @@ Lists pending matches involving the person, separated into matches they need to 
 Accepting changes the match status to `ACCEPTED`; declining changes it to `DECLINED`. The `:id` must be the matched person's ID, and `:matchId` is the match record ID.
 
 The list response includes `incoming` and `outgoing` arrays. Incoming entries include the initiating person's profile; outgoing entries include the matched person's profile.
+
+### List meetups and call history
+
+* **URL:** `/api/people/:id/meetups`
+* **Method:** `GET`
+
+Returns pending and accepted matches involving the person, with the other participant
+in `colleague` (including their email, office, job fields and interests, never their
+password hash). Offered and declined matches are omitted. No matches returns `[]`;
+an unknown person returns `404`, and an invalid person ID returns `400`.
+
+Each entry contains:
+
+```typescript
+{
+  id: number; // Match record ID
+  status: "PENDING" | "ACCEPTED";
+  matched_at: string; // ISO timestamp, not a scheduled call time
+  completed_at: string | null; // ISO timestamp; non-null entries form call history
+  direction: "incoming" | "outgoing";
+  colleague: Person;
+}
+```
+
+Completed entries are ordered newest completion first; other entries are ordered
+newest match first, with match ID as a stable tie-breaker. Dates record the match
+and the confirmation of completion, not a booked time or a verified Teams call.
+
+### Mark an accepted match completed
+
+* **URL:** `/api/people/:id/matches/:matchId/complete`
+* **Method:** `POST`
+* **Body:** None
+
+Either participant can complete a mutually accepted match. Returns the match record
+with `completed_at` set. Repeated or concurrent confirmation preserves the first
+completion timestamp. Both participants then see it in history. Returns `400` for
+invalid IDs, `404` for an unknown person, or `409` when the match is not accepted,
+does not exist, or the supplied person is not a participant.
+
+Completion retains the `ACCEPTED` status, so the pair remains excluded from spins
+permanently in both directions and still counts toward the existing weekly cap
+based on `matched_at`. Existing stale offers are checked before being returned or
+accepted. This does not create, schedule, or modify records in the separate Chat API.
+
+**Prototype security limitation:** these endpoints follow the existing caller-supplied
+person-ID convention, not authenticated authorization. The participant check prevents
+an unrelated supplied ID from completing a match, but does not prove caller identity.
+Server-side sessions and authorization are required before production use.

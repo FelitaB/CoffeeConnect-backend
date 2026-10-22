@@ -191,6 +191,35 @@ export class PeopleController {
         }
     };
 
+    findMeetups = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+        try {
+            const meetups = await this.peopleService.findMeetups(PersonIdSchema.parse(req.params.id));
+            if (!meetups) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+            res.status(200).json(meetups);
+        } catch (error) {
+            sendError(res, error, "Unable to fetch meetups");
+        }
+    };
+
+    completeMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
+        try {
+            const match = await this.peopleService.completeMatch(
+                PersonIdSchema.parse(req.params.id),
+                MatchRecordIdSchema.parse(req.params.matchId),
+            );
+            if (!match) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+            res.status(200).json(match);
+        } catch (error) {
+            sendError(res, error, "Unable to complete match");
+        }
+    };
+
     declineIncomingMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
         try {
             if (!(await this.peopleService.declineIncomingMatch(

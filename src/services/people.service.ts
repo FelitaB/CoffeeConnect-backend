@@ -246,19 +246,22 @@ export class PeopleService
         );
         this.assertUnderWeeklyLimit(id, matchCounts);
 
-        const offered = await this.peopleRepository.findOfferedMatch(id);
-        if (offered) {
-            const offeredPerson = await this.peopleRepository.findById(offered.match_id);
-            if (offeredPerson) {
-                return { match: offeredPerson };
-            }
-        }
-
         const [declinedIds, matchedIds] = await Promise.all([
             this.peopleRepository.findDeclinedIds(id),
             this.peopleRepository.findMatchedIds(id),
         ]);
         const excluded = new Set([id, ...declinedIds, ...matchedIds]);
+        const offered = await this.peopleRepository.findOfferedMatch(id);
+        if (offered) {
+            const offeredPerson = excluded.has(offered.match_id)
+                ? null
+                : await this.peopleRepository.findById(offered.match_id);
+            if (offeredPerson) {
+                return { match: offeredPerson };
+            }
+            await this.peopleRepository.updateMatchStatus(offered.id, MatchStatus.DECLINED);
+        }
+
         const candidates = (await this.peopleRepository.findAll())
             .filter((candidate) => !excluded.has(candidate.id)
                 && !this.hasReachedWeeklyLimit(candidate.id, matchCounts));
@@ -277,6 +280,10 @@ export class PeopleService
         }
 
         const offered = await this.requireOfferedMatch(id);
+        const matchedIds = await this.peopleRepository.findMatchedIds(id);
+        if (matchedIds.has(offered.match_id)) {
+            throw new HttpError(409, "You have already matched with this person. Please spin again.");
+        }
         const matchedPerson = await this.peopleRepository.findById(offered.match_id);
         if (!matchedPerson) {
             throw new HttpError(409, "The offered person no longer exists. Please spin again.");
@@ -323,6 +330,34 @@ export class PeopleService
         }
 
         return this.peopleRepository.findPendingMatches(personId);
+    }
+
+    async findMeetups(personId: number) {
+        if (!await this.peopleRepository.findById(personId)) {
+            return undefined;
+        }
+
+        const matches = await this.peopleRepository.findMeetups(personId);
+        return matches.map((match) => ({
+            id: match.id,
+            status: match.status,
+            matched_at: match.matched_at ?? match.created_at,
+            completed_at: match.completed_at,
+            direction: match.person_id === personId ? "outgoing" as const : "incoming" as const,
+            colleague: match.person_id === personId ? match.match : match.person,
+        }));
+    }
+
+    async completeMatch(personId: number, matchId: number): Promise<Match | undefined> {
+        if (!await this.peopleRepository.findById(personId)) {
+            return undefined;
+        }
+
+        const match = await this.peopleRepository.completeMatch(personId, matchId);
+        if (!match) {
+            throw new HttpError(409, "Only a participant in an accepted match can mark it completed.");
+        }
+        return match;
     }
 
     async declineIncomingMatch(personId: number, matchId: number): Promise<boolean> {
