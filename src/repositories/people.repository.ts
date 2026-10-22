@@ -1,9 +1,22 @@
-import { MatchStatus, type Interest, type JobRole, type Location, type Match, type Prisma } from "../generated/prisma/client";
+import { BookingProposalStatus, BookingStatus, MatchStatus, type Interest, type JobRole, type Location, type Match, type Prisma } from "../generated/prisma/client";
 import { isRecordNotFound, prisma, type AppPrismaClient } from "../lib/prisma";
 
-export { MatchStatus, type Interest, type Match };
+export { BookingProposalStatus, BookingStatus, MatchStatus, type Interest, type Match };
+
+export type BookingMutationResult =
+    | { kind: "updated", bookingId: number }
+    | { kind: "not-eligible" | "waiting" | "confirmed" | "invalid-slot" };
 
 const personInclude = { interests: true } satisfies Prisma.PersonInclude;
+const bookingInclude = {
+    proposals: {
+        orderBy: [{ created_at: "desc" }, { id: "desc" }],
+        include: {
+            proposer: { select: { id: true, first_name: true, last_name: true } },
+            slots: { orderBy: { starts_at: "asc" } },
+        },
+    },
+} satisfies Prisma.BookingInclude;
 
 export type Person = Omit<Prisma.PersonGetPayload<{ include: typeof personInclude }>, "hashedPassword">;
 
@@ -134,8 +147,97 @@ export class PeopleRepository
             include: {
                 person: { include: personInclude },
                 match: { include: personInclude },
+                booking: { include: bookingInclude },
             },
             orderBy: [{ completed_at: "desc" }, { matched_at: "desc" }, { id: "desc" }],
+        });
+    }
+
+    findBookingForMatch(matchId: number) {
+        return this.db.booking.findUnique({ where: { match_id: matchId }, include: bookingInclude });
+    }
+
+    proposeBooking(personId: number, matchId: number, slots: Date[]): Promise<BookingMutationResult> {
+        return this.db.$transaction(async (tx) => {
+            const match = await tx.match.findFirst({
+                where: {
+                    id: matchId,
+                    status: MatchStatus.ACCEPTED,
+                    completed_at: null,
+                    OR: [{ person_id: personId }, { match_id: personId }],
+                },
+                select: { id: true },
+            });
+            if (!match) return { kind: "not-eligible" };
+
+            const booking = await tx.booking.upsert({
+                where: { match_id: matchId },
+                create: { match_id: matchId },
+                update: {},
+            });
+            if (booking.status === BookingStatus.CONFIRMED) return { kind: "confirmed" };
+
+            const active = await tx.bookingProposal.findFirst({
+                where: { booking_id: booking.id, status: BookingProposalStatus.OPEN },
+                orderBy: [{ created_at: "desc" }, { id: "desc" }],
+            });
+            if (active?.proposed_by === personId) return { kind: "waiting" };
+
+            await tx.bookingProposal.updateMany({
+                where: { booking_id: booking.id, status: BookingProposalStatus.OPEN },
+                data: { status: BookingProposalStatus.SUPERSEDED },
+            });
+            const proposal = await tx.bookingProposal.create({
+                data: { booking_id: booking.id, proposed_by: personId },
+            });
+            await tx.bookingSlot.createMany({
+                data: slots.map((starts_at) => ({ proposal_id: proposal.id, starts_at })),
+            });
+            return { kind: "updated", bookingId: booking.id };
+        });
+    }
+
+    acceptBookingSlot(personId: number, matchId: number, slotId: number): Promise<BookingMutationResult> {
+        return this.db.$transaction(async (tx) => {
+            const match = await tx.match.findFirst({
+                where: {
+                    id: matchId,
+                    status: MatchStatus.ACCEPTED,
+                    completed_at: null,
+                    OR: [{ person_id: personId }, { match_id: personId }],
+                },
+                select: { id: true },
+            });
+            if (!match) return { kind: "not-eligible" };
+
+            const booking = await tx.booking.findUnique({ where: { match_id: matchId } });
+            if (!booking) return { kind: "waiting" };
+            if (booking.status === BookingStatus.CONFIRMED) return { kind: "confirmed" };
+
+            const proposal = await tx.bookingProposal.findFirst({
+                where: { booking_id: booking.id, status: BookingProposalStatus.OPEN },
+                orderBy: [{ created_at: "desc" }, { id: "desc" }],
+            });
+            if (!proposal || proposal.proposed_by === personId) return { kind: "waiting" };
+
+            const slot = await tx.bookingSlot.findFirst({
+                where: { id: slotId, proposal_id: proposal.id, starts_at: { gt: new Date() } },
+            });
+            if (!slot) return { kind: "invalid-slot" };
+
+            const accepted = await tx.bookingProposal.updateMany({
+                where: { id: proposal.id, status: BookingProposalStatus.OPEN },
+                data: { status: BookingProposalStatus.ACCEPTED },
+            });
+            if (accepted.count !== 1) return { kind: "waiting" };
+
+            const confirmedAt = new Date();
+            const confirmed = await tx.booking.updateMany({
+                where: { id: booking.id, status: BookingStatus.PROPOSED, scheduled_at: null },
+                data: { status: BookingStatus.CONFIRMED, scheduled_at: slot.starts_at, confirmed_at: confirmedAt },
+            });
+            if (confirmed.count !== 1) return { kind: "confirmed" };
+            return { kind: "updated", bookingId: booking.id };
         });
     }
 

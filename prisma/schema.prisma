@@ -31,6 +31,7 @@ model Person {
   received_chats Chat[]     @relation("ChatReceiver")
   initiated_matches Match[]  @relation("MatchPerson")
   received_matches  Match[]  @relation("MatchCandidate")
+  booking_proposals BookingProposal[] @relation("BookingProposalProposer")
 }
 
 model Interest {
@@ -67,11 +68,50 @@ model Match {
 
   person Person @relation("MatchPerson", fields: [person_id], references: [id], onDelete: Cascade)
   match  Person @relation("MatchCandidate", fields: [match_id], references: [id], onDelete: Cascade)
+  booking Booking?
 
   @@unique([person_id, match_id])
   @@index([person_id, status])
   @@index([match_id, status])
   @@index([status, matched_at])
+}
+
+model Booking {
+  id           Int           @id @default(autoincrement())
+  match_id     Int           @unique
+  status       BookingStatus @default(PROPOSED)
+  scheduled_at DateTime?
+  confirmed_at DateTime?
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  match     Match             @relation(fields: [match_id], references: [id], onDelete: Cascade)
+  proposals BookingProposal[]
+}
+
+model BookingProposal {
+  id          Int                  @id @default(autoincrement())
+  booking_id  Int
+  proposed_by Int
+  status      BookingProposalStatus @default(OPEN)
+  created_at  DateTime             @default(now())
+
+  booking  Booking       @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  proposer Person        @relation("BookingProposalProposer", fields: [proposed_by], references: [id], onDelete: Cascade)
+  slots    BookingSlot[]
+
+  @@index([booking_id, status])
+}
+
+model BookingSlot {
+  id          Int      @id @default(autoincrement())
+  proposal_id Int
+  starts_at   DateTime
+
+  proposal BookingProposal @relation(fields: [proposal_id], references: [id], onDelete: Cascade)
+
+  @@unique([proposal_id, starts_at])
+  @@index([starts_at])
 }
 
 enum ChatStatus {
@@ -87,6 +127,17 @@ enum MatchStatus {
   PENDING
   ACCEPTED
   DECLINED
+}
+
+enum BookingStatus {
+  PROPOSED
+  CONFIRMED
+}
+
+enum BookingProposalStatus {
+  OPEN
+  ACCEPTED
+  SUPERSEDED
 }
 
 enum JobRole {

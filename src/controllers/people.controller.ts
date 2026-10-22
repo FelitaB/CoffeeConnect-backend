@@ -220,6 +220,40 @@ export class PeopleController {
         }
     };
 
+    proposeBooking = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
+        try {
+            const booking = await this.peopleService.proposeBooking(
+                PersonIdSchema.parse(req.params.id),
+                MatchRecordIdSchema.parse(req.params.matchId),
+                req.body,
+            );
+            if (!booking) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+            res.status(201).json(booking);
+        } catch (error) {
+            sendError(res, error, "Unable to propose booking times");
+        }
+    };
+
+    acceptBookingSlot = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
+        try {
+            const booking = await this.peopleService.acceptBookingSlot(
+                PersonIdSchema.parse(req.params.id),
+                MatchRecordIdSchema.parse(req.params.matchId),
+                req.body,
+            );
+            if (!booking) {
+                res.status(404).json({ status: "fail", message: "Person not found", errors: [] });
+                return;
+            }
+            res.status(200).json(booking);
+        } catch (error) {
+            sendError(res, error, "Unable to confirm booking time");
+        }
+    };
+
     declineIncomingMatch = async (req: Request<{ id: string, matchId: string }>, res: Response): Promise<void> => {
         try {
             if (!(await this.peopleService.declineIncomingMatch(
