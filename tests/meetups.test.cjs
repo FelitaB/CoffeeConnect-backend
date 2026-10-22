@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 process.env.DATABASE_URL ??= "mysql://test:test@localhost:3306/coffee_connect_test";
 
-const { PeopleService } = require("../src/services/people.service");
+const { PeopleService, ProposeBookingSchema } = require("../src/services/people.service");
 const { PeopleRepository, MatchStatus } = require("../src/repositories/people.repository");
 const { PeopleController } = require("../src/controllers/people.controller");
 
@@ -199,5 +199,136 @@ test("completion controller validates IDs and returns completion or conflict", a
     await controller.completeMatch({ params: { id: "10001", matchId: "2" } }, response);
     assert.equal(response.code, 409);
     await controller.completeMatch({ params: { id: "99999", matchId: "1" } }, response);
+    assert.equal(response.code, 404);
+});
+
+test("booking proposals accept future London half-hour starts on quarter-hour boundaries", () => {
+    const result = ProposeBookingSchema.safeParse({ slots: [
+        "2027-01-12T09:00:00.000Z",
+        "2027-01-12T09:15:00.000Z",
+        "2027-01-12T16:30:00.000Z",
+    ] });
+    assert.equal(result.success, true);
+});
+
+test("booking proposals reject past, off-grid, outside-hours, duplicate and excessive options", () => {
+    for (const slots of [
+        ["2020-01-01T09:00:00.000Z"],
+        ["2027-01-12T09:07:00.000Z"],
+        ["2027-01-12T08:45:00.000Z"],
+        ["2027-01-12T16:45:00.000Z"],
+        ["2027-01-12T09:00:00.000Z", "2027-01-12T10:00:00+01:00"],
+        Array.from({ length: 9 }, (_, index) => `2027-01-${String(12 + index).padStart(2, "0")}T09:00:00.000Z`),
+    ]) {
+        assert.equal(ProposeBookingSchema.safeParse({ slots }).success, false);
+    }
+});
+
+test("booking proposal transaction permits first proposal and alternating counteroffers", async () => {
+    const proposals = [];
+    const createdSlots = [];
+    let nextProposalId = 1;
+    const tx = {
+        match: { findFirst: async (query) => {
+            assert.equal(query.where.status, MatchStatus.ACCEPTED);
+            assert.equal(query.where.completed_at, null);
+            return { id: 10 };
+        } },
+        booking: { upsert: async () => ({ id: 20, match_id: 10, status: "PROPOSED" }) },
+        bookingProposal: {
+            findFirst: async () => proposals.find((proposal) => proposal.status === "OPEN") ?? null,
+            updateMany: async ({ where, data }) => {
+                const active = proposals.find((proposal) => proposal.id === where.booking_id && proposal.status === "OPEN");
+                for (const proposal of proposals) if (proposal.status === "OPEN") proposal.status = data.status;
+                return { count: active ? 1 : 0 };
+            },
+            create: async ({ data }) => {
+                const proposal = { id: nextProposalId++, ...data, status: "OPEN" };
+                proposals.push(proposal);
+                return proposal;
+            },
+        },
+        bookingSlot: { createMany: async ({ data }) => { createdSlots.push(...data); return { count: data.length }; } },
+    };
+    const repository = new PeopleRepository({ $transaction: (work) => work(tx) });
+    const slots = [new Date("2027-01-12T09:00:00Z"), new Date("2027-01-12T09:15:00Z")];
+    assert.deepEqual(await repository.proposeBooking(initiator.id, 10, slots), { kind: "updated", bookingId: 20 });
+    assert.deepEqual(await repository.proposeBooking(recipient.id, 10, slots), { kind: "updated", bookingId: 20 });
+    assert.equal(proposals[0].status, "SUPERSEDED");
+    assert.equal(proposals[1].proposed_by, recipient.id);
+    assert.equal(createdSlots.length, 4);
+    assert.deepEqual(await repository.proposeBooking(recipient.id, 10, slots), { kind: "waiting" });
+    assert.equal(proposals.length, 2);
+});
+
+test("booking acceptance only confirms a slot in another participant's active proposal", async () => {
+    let proposalStatus = "OPEN";
+    let bookingStatus = "PROPOSED";
+    let scheduledAt = null;
+    const selectedTime = new Date("2027-01-12T09:00:00Z");
+    const tx = {
+        match: { findFirst: async () => ({ id: 10 }) },
+        booking: { findUnique: async () => ({ id: 20, status: bookingStatus, scheduled_at: scheduledAt }), updateMany: async ({ data }) => {
+            if (bookingStatus === "CONFIRMED") return { count: 0 };
+            bookingStatus = data.status;
+            scheduledAt = data.scheduled_at;
+            return { count: 1 };
+        } },
+        bookingProposal: { findFirst: async () => ({ id: 30, proposed_by: initiator.id, status: proposalStatus }), updateMany: async ({ data }) => {
+            if (proposalStatus !== "OPEN") return { count: 0 };
+            proposalStatus = data.status;
+            return { count: 1 };
+        } },
+        bookingSlot: { findFirst: async ({ where }) => where.id === 40 && where.proposal_id === 30 ? { id: 40, proposal_id: 30, starts_at: selectedTime } : null },
+    };
+    const repository = new PeopleRepository({ $transaction: (work) => work(tx) });
+    assert.deepEqual(await repository.acceptBookingSlot(initiator.id, 10, 40), { kind: "waiting" });
+    assert.deepEqual(await repository.acceptBookingSlot(recipient.id, 10, 999), { kind: "invalid-slot" });
+    assert.equal(proposalStatus, "OPEN");
+    assert.deepEqual(await repository.acceptBookingSlot(recipient.id, 10, 40), { kind: "updated", bookingId: 20 });
+    assert.equal(proposalStatus, "ACCEPTED");
+    assert.equal(bookingStatus, "CONFIRMED");
+    assert.equal(scheduledAt, selectedTime);
+});
+
+test("booking service validates proposals and rejects nonparticipants and an existing proposal owner", async () => {
+    const proposedSlots = ["2027-01-12T09:00:00.000Z", "2027-01-12T09:15:00.000Z"];
+    let persistedDates;
+    const service = new PeopleService({
+        findById: async () => initiator,
+        proposeBooking: async (_personId, _matchId, slots) => {
+            persistedDates = slots;
+            return { kind: "updated", bookingId: 42 };
+        },
+        findBookingForMatch: async () => ({ id: 42, status: "PROPOSED" }),
+        acceptBookingSlot: async () => ({ kind: "not-eligible" }),
+    });
+    assert.deepEqual(await service.proposeBooking(initiator.id, 10, { slots: proposedSlots }), { id: 42, status: "PROPOSED" });
+    assert.ok(persistedDates.every((slot) => slot instanceof Date));
+    await assert.rejects(service.proposeBooking(initiator.id, 10, { slots: ["2027-01-12T08:07:00.000Z"] }));
+    await assert.rejects(service.acceptBookingSlot(initiator.id, 10, { slot_id: 7 }), { statusCode: 409 });
+
+    const unknown = new PeopleService({ findById: async () => null });
+    assert.equal(await unknown.proposeBooking(99999, 10, { slots: proposedSlots }), undefined);
+    assert.equal(await unknown.acceptBookingSlot(99999, 10, { slot_id: 7 }), undefined);
+});
+
+test("booking controller validates route and body and maps unknown participants", async () => {
+    const controller = new PeopleController({
+        proposeBooking: async (personId, matchId, body) => {
+            assert.equal(personId, initiator.id);
+            assert.equal(matchId, 10);
+            assert.deepEqual(body, { slots: ["2027-01-12T09:00:00.000Z"] });
+            return { id: 42 };
+        },
+        acceptBookingSlot: async () => undefined,
+    });
+    const response = responseRecorder();
+    await controller.proposeBooking({ params: { id: "10001", matchId: "10" }, body: { slots: ["2027-01-12T09:00:00.000Z"] } }, response);
+    assert.equal(response.code, 201);
+    assert.deepEqual(response.body, { id: 42 });
+    await controller.proposeBooking({ params: { id: "invalid", matchId: "10" }, body: { slots: [] } }, response);
+    assert.equal(response.code, 400);
+    await controller.acceptBookingSlot({ params: { id: "10001", matchId: "10" }, body: { slot_id: 7 } }, response);
     assert.equal(response.code, 404);
 });
