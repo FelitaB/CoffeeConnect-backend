@@ -103,9 +103,11 @@ function isValidBookingStart(value: string): boolean {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
         timeZone: BOOKING_TIME_ZONE,
         hourCycle: "h23",
+        weekday: "short",
         hour: "2-digit",
         minute: "2-digit",
     }).formatToParts(startsAt).map(({ type, value }) => [type, value]));
+    if (parts.weekday === "Sat" || parts.weekday === "Sun") return false;
     const hour = Number(parts.hour);
     const minute = Number(parts.minute);
     const startMinute = hour * 60 + minute;

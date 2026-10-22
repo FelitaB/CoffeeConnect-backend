@@ -217,6 +217,8 @@ test("booking proposals reject past, off-grid, outside-hours, duplicate and exce
         ["2027-01-12T09:07:00.000Z"],
         ["2027-01-12T08:45:00.000Z"],
         ["2027-01-12T16:45:00.000Z"],
+        ["2027-01-16T09:00:00.000Z"],
+        ["2027-01-17T09:00:00.000Z"],
         ["2027-01-12T09:00:00.000Z", "2027-01-12T10:00:00+01:00"],
         Array.from({ length: 9 }, (_, index) => `2027-01-${String(12 + index).padStart(2, "0")}T09:00:00.000Z`),
     ]) {
