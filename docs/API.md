@@ -238,7 +238,7 @@ Checks whether a work email and 5-digit user ID match the same person awaiting r
 Unknown emails, mismatched IDs, and already registered people return `verified: false`. Invalid input returns `400`.
 
 ### Set a password
-Hashes and saves a password for an existing person who is not registered yet, requiring a matching email and user ID. This does not mark the person as registered. That happens when registration is completed.
+Hashes and saves a password for an existing person who is not registered yet, requiring a matching email and user ID. This also sets `registered` to `true`, so subsequent sign-ins ask for the password instead of the user ID. Interests can then be saved using `PATCH /api/people/:id`.
 
 > **Security note:** this endpoint does not yet verify that the caller owns the email inbox. Add email verification before going live.
 

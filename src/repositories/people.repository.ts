@@ -59,7 +59,7 @@ export class PeopleRepository
     }
 
     setPassword(id: number, hashedPassword: string): Promise<Person> {
-        return this.db.person.update({ where: { id }, data: { hashedPassword }, include: personInclude });
+        return this.db.person.update({ where: { id }, data: { hashedPassword, registered: true }, include: personInclude });
     }
 
     completeRegistration(id: number, interest_ids: number[]): Promise<Person> {
