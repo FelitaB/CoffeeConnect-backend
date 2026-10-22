@@ -402,7 +402,8 @@ for history. Send 1 to 8 ISO-8601 timestamps:
 ```
 
 All times are interpreted and displayed in `Europe/London`. Proposed starts must
-be in the future, on 15-minute boundaries, and between 09:00 and 16:30 UK time;
+be future weekdays (Monday–Friday), on 15-minute boundaries, and between 09:00
+and 16:30 UK time;
 each option is a 30-minute meeting. The latest proposal and its slots are included
 in `GET /api/people/:id/meetups` under `booking.proposals`. An existing open
 proposal from the caller returns `409` until the other person responds. Only

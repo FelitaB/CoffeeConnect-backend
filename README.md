@@ -186,7 +186,7 @@ separate additive migration after call history. When updating a call-history dat
 review that the booking migration is the only pending migration before deploying.
 
 After both users accept a match, either participant can propose up to eight 30-minute
-options between 09:00 and 16:30 Europe/London, starting on 15-minute boundaries. The
+weekday options between 09:00 and 16:30 Europe/London, starting on 15-minute boundaries. The
 recipient can confirm one option or counter with new options. Countered proposal rounds
 are retained; only the latest open proposal can be accepted. Booking time is stored on a
 separate `Booking` record and does not change match or call-completion status.
