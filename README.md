@@ -140,9 +140,10 @@ check the target before applying a migration, and coordinate any shared environm
    npx prisma migrate status --config prisma7.config.ts
    ```
 
-   For an otherwise up-to-date database, the only pending migration should be
-   `20261020120000_add_match_completion`. If unexpected migrations, failed migrations,
-   or schema-history errors are reported, stop and review them with the team.
+   On a fresh database, both call-history and booking migrations are pending in
+   order. On a database already updated for call history, the only pending migration
+   should be `20261021150000_add_booking_proposals`. Stop and review any unexpected
+   or failed migrations with the team.
    If the schema is already up to date, no migration needs applying.
 
 5. Apply the reviewed migration and regenerate the Prisma client:
@@ -153,8 +154,9 @@ check the target before applying a migration, and coordinate any shared environm
    ```
 
    `migrate deploy` applies **all pending migrations**, not just the completion
-   migration. Proceed only after reviewing step 4. The completion migration adds a
-   nullable date column; existing matches stay uncompleted and existing data is kept.
+   migration. Proceed only after reviewing step 4. These migrations add a nullable
+   completion column and booking tables; existing matches stay uncompleted and
+   unscheduled.
 
 6. Verify the schema and restart the API:
 
@@ -171,9 +173,27 @@ installations should instead follow **Run Locally** and **Seed Demonstration Dat
 above. A shared deployment requires a coordinated migration by its database owner.
 
 `prisma generate` updates local client code only; it does not apply migrations.
-Completion is manually confirmed by either participant, without calendar scheduling
-or Teams call-log access. Completed pairs stay excluded from spins and retain their
-existing weekly match count. This workflow uses Match records, not the separate Chat API.
+Call completion is manually confirmed by either participant; completed pairs stay
+excluded from spins and retain their existing weekly match count. Booking is stored
+separately from Match and Chat records and does not access Teams call logs.
+
+## Booking Proposals
+
+The `feature/47-calendar-optionality-to-choose-booking` branch adds the
+`Booking`, `BookingProposal`, and `BookingSlot` tables through
+`prisma/migrations/20261021150000_add_booking_proposals/migration.sql`. This is a
+separate additive migration after call history. When updating a call-history database,
+review that the booking migration is the only pending migration before deploying.
+
+After both users accept a match, either participant can propose up to eight 30-minute
+weekday options between 09:00 and 16:30 Europe/London, starting on 15-minute boundaries. The
+recipient can confirm one option or counter with new options. Countered proposal rounds
+are retained; only the latest open proposal can be accepted. Booking time is stored on a
+separate `Booking` record and does not change match or call-completion status.
+
+This is proposal coordination only: the app does not check Outlook/Teams availability,
+send notifications, or create external calendar events. Existing unrelated local
+databases are not changed until their owner applies the migration.
 
 Run the database-independent regression tests with `npm test` and check backend types
 with `npx tsc --noEmit`. Tests inject repositories or database doubles and do not

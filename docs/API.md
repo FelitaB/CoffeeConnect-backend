@@ -380,3 +380,49 @@ accepted. This does not create, schedule, or modify records in the separate Chat
 person-ID convention, not authenticated authorization. The participant check prevents
 an unrelated supplied ID from completing a match, but does not prove caller identity.
 Server-side sessions and authorization are required before production use.
+
+### Propose or counter coffee-chat times
+
+* **URL:** `/api/people/:id/matches/:matchId/booking/propose`
+* **Method:** `POST`
+
+Either participant in an accepted, uncompleted match can propose the first set of
+times. After a proposal is open, only the other participant can counter with new
+options. A counter supersedes the previous options; proposal rounds remain stored
+for history. Send 1 to 8 ISO-8601 timestamps:
+
+```json
+{
+  "slots": [
+    "2027-01-12T09:00:00.000Z",
+    "2027-01-12T09:15:00.000Z",
+    "2027-01-13T10:30:00.000Z"
+  ]
+}
+```
+
+All times are interpreted and displayed in `Europe/London`. Proposed starts must
+be future weekdays (Monday–Friday), on 15-minute boundaries, and between 09:00
+and 16:30 UK time;
+each option is a 30-minute meeting. The latest proposal and its slots are included
+in `GET /api/people/:id/meetups` under `booking.proposals`. An existing open
+proposal from the caller returns `409` until the other person responds. Only
+accepted matches can be scheduled. The application does not check external
+calendar availability or send messages or invitations.
+
+### Accept a proposed time
+
+* **URL:** `/api/people/:id/matches/:matchId/booking/accept`
+* **Method:** `POST`
+
+The participant receiving the latest open proposal selects one of its `slot_id`
+values:
+
+```json
+{ "slot_id": 42 }
+```
+
+The booking becomes `CONFIRMED` with `scheduled_at` and `confirmed_at` set. Returns
+`409` for a nonparticipant, a stale or unavailable slot, a response from the
+proposer themselves, or an already confirmed booking. Both participants see the
+confirmed time on their Meetups page.

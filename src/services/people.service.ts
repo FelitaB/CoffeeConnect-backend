@@ -91,6 +91,51 @@ export const CompleteRegistrationSchema = z.object({
     interest_ids: z.array(z.number().int()).min(3, "Select at least 3 interests").max(10, "Select at most 10 interests"),
 });
 
+const MAX_BOOKING_OPTIONS = 8;
+const BOOKING_TIME_ZONE = "Europe/London";
+
+function isValidBookingStart(value: string): boolean {
+    const startsAt = new Date(value);
+    if (Number.isNaN(startsAt.getTime()) || startsAt <= new Date() || startsAt.getUTCSeconds() !== 0 || startsAt.getUTCMilliseconds() !== 0) {
+        return false;
+    }
+
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+        timeZone: BOOKING_TIME_ZONE,
+        hourCycle: "h23",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).formatToParts(startsAt).map(({ type, value }) => [type, value]));
+    if (parts.weekday === "Sat" || parts.weekday === "Sun") return false;
+    const hour = Number(parts.hour);
+    const minute = Number(parts.minute);
+    const startMinute = hour * 60 + minute;
+    return minute % 15 === 0 && startMinute >= 9 * 60 && startMinute <= 16 * 60 + 30;
+}
+
+export const ProposeBookingSchema = z.object({
+    slots: z.array(z.iso.datetime({ offset: true }))
+        .min(1, "Choose at least one time")
+        .max(MAX_BOOKING_OPTIONS, `Choose no more than ${MAX_BOOKING_OPTIONS} times`)
+        .superRefine((slots, context) => {
+            if (new Set(slots.map((slot) => new Date(slot).getTime())).size !== slots.length) {
+                context.addIssue({ code: "custom", message: "Choose each time only once" });
+            }
+            slots.forEach((slot, index) => {
+                if (!isValidBookingStart(slot)) {
+                    context.addIssue({
+                        code: "custom",
+                        path: [index],
+                        message: "Times must be in the future, use 15-minute increments, and start between 09:00 and 16:30 UK time",
+                    });
+                }
+            });
+        }),
+});
+
+export const AcceptBookingSchema = z.object({ slot_id: z.number().int().positive() });
+
 export class RegistrationError extends Error {}
 
 // Compared against when no stored hash exists so unknown emails take as long as known ones.
@@ -345,7 +390,60 @@ export class PeopleService
             completed_at: match.completed_at,
             direction: match.person_id === personId ? "outgoing" as const : "incoming" as const,
             colleague: match.person_id === personId ? match.match : match.person,
+            booking: match.booking ? {
+                id: match.booking.id,
+                status: match.booking.status,
+                scheduled_at: match.booking.scheduled_at,
+                confirmed_at: match.booking.confirmed_at,
+                proposals: match.booking.proposals.map((proposal) => ({
+                    id: proposal.id,
+                    status: proposal.status,
+                    proposed_by: proposal.proposed_by,
+                    proposer: proposal.proposer,
+                    created_at: proposal.created_at,
+                    slots: proposal.slots,
+                })),
+            } : null,
         }));
+    }
+
+    async proposeBooking(personId: number, matchId: number, body: unknown) {
+        const { slots } = ProposeBookingSchema.parse(body);
+        if (!await this.peopleRepository.findById(personId)) return undefined;
+
+        const result = await this.peopleRepository.proposeBooking(personId, matchId, slots.map((slot) => new Date(slot)));
+        if (result.kind === "not-eligible") {
+            throw new HttpError(409, "Only participants in an accepted, active match can propose a time.");
+        }
+        if (result.kind === "waiting") {
+            throw new HttpError(409, "Wait for the other participant to accept or counter the current proposal.");
+        }
+        if (result.kind === "confirmed") {
+            throw new HttpError(409, "A time is already confirmed for this match.");
+        }
+
+        return this.peopleRepository.findBookingForMatch(matchId);
+    }
+
+    async acceptBookingSlot(personId: number, matchId: number, body: unknown) {
+        const { slot_id } = AcceptBookingSchema.parse(body);
+        if (!await this.peopleRepository.findById(personId)) return undefined;
+
+        const result = await this.peopleRepository.acceptBookingSlot(personId, matchId, slot_id);
+        if (result.kind === "not-eligible") {
+            throw new HttpError(409, "Only participants in an accepted, active match can confirm a booking.");
+        }
+        if (result.kind === "waiting") {
+            throw new HttpError(409, "No time proposal is waiting for your response.");
+        }
+        if (result.kind === "confirmed") {
+            throw new HttpError(409, "A time is already confirmed for this match.");
+        }
+        if (result.kind === "invalid-slot") {
+            throw new HttpError(409, "Choose an available time from the current proposal.");
+        }
+
+        return this.peopleRepository.findBookingForMatch(matchId);
     }
 
     async completeMatch(personId: number, matchId: number): Promise<Match | undefined> {

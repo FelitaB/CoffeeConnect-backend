@@ -17,6 +17,8 @@ router.post("/:id/spin/accept", peopleController.acceptMatch);
 router.post("/:id/spin/decline", peopleController.declineMatch);
 router.get("/:id/matches/pending", peopleController.findPendingMatches);
 router.get("/:id/meetups", peopleController.findMeetups);
+router.post("/:id/matches/:matchId/booking/propose", peopleController.proposeBooking);
+router.post("/:id/matches/:matchId/booking/accept", peopleController.acceptBookingSlot);
 router.post("/:id/matches/:matchId/complete", peopleController.completeMatch);
 router.post("/:id/matches/:matchId/accept", peopleController.acceptIncomingMatch);
 router.post("/:id/matches/:matchId/decline", peopleController.declineIncomingMatch);
